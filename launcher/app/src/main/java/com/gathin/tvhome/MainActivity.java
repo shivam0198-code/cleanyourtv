@@ -3201,7 +3201,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
         boolean any = liveTvIntent() != null || !sourcePanelService.isEmpty()
-                || (coocaaSources && !CoocaaSources.list(this).isEmpty());
+                || (coocaaSources && !CoocaaSources.list(this).isEmpty())
+                || castAppIntent() != null;
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (!any && tim != null) {
             for (TvInputInfo info : tim.getTvInputList()) {
@@ -3257,6 +3258,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /** The Live TV app's launch intent: its leanback entry point, or the configured action if it has none. */
+    private Intent castAppIntent() {
+        if (cfg.castApp.isEmpty()) return null;
+        PackageManager pm = getPackageManager();
+        Intent launch = pm.getLeanbackLaunchIntentForPackage(cfg.castApp);
+        if (launch == null) launch = pm.getLaunchIntentForPackage(cfg.castApp);
+        return launch;
+    }
+
     private Intent liveTvIntent() {
         if (liveTvPkg.isEmpty()) return null;
         Intent i = getPackageManager().getLeanbackLaunchIntentForPackage(liveTvPkg);
@@ -3569,6 +3578,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         ? new Intent(Intent.ACTION_VIEW).setData(TvContract.Channels.CONTENT_URI).setComponent(handler)
                         : tuned;
             }
+        }
+        Intent cast = castAppIntent();
+        if (cast != null) {
+            if (rows.getChildCount() > 0) addSeparator(rows);
+            final Intent castIntent = cast;
+            String label = cfg.castAppLabel.isEmpty() ? getString(R.string.miracast) : cfg.castAppLabel;
+            addInputRow(rows, popup, R.drawable.ic_cast, label, -1, () -> open(castIntent));
         }
         if (liveTv != null) {
             if (rows.getChildCount() > 0) addSeparator(rows);

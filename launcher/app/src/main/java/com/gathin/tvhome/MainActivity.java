@@ -119,6 +119,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private static final long TIME_VALID_AFTER_MS = 1_735_689_600_000L;
     private String liveTvPkg;
+    private String castApp = "";
+    private String castAppLabel = "";
     /** Launcher settings' change count this Home was built with (see onResume). */
     private long settingsRevision;
     /** Idle time on Home before ClockActivity; 0 is off (config.xml, home_idle_clock_minutes). */
@@ -481,6 +483,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         festival = cfg.festival;
         festive = festival.active(LocalDate.now());
         liveTvPkg = cfg.liveTvPackage;
+        castApp = cfg.castApp;
+        castAppLabel = cfg.castAppLabel;
         idleClockMs = cfg.homeIdleClockMinutes * MINUTE_MS;
         backOpensClock = cfg.backOpensClock;
         bootToLiveTv = cfg.bootToLiveTv;
@@ -3259,10 +3263,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** The Live TV app's launch intent: its leanback entry point, or the configured action if it has none. */
     private Intent castAppIntent() {
-        if (cfg.castApp.isEmpty()) return null;
+        if (castApp.isEmpty()) return null;
         PackageManager pm = getPackageManager();
-        Intent launch = pm.getLeanbackLaunchIntentForPackage(cfg.castApp);
-        if (launch == null) launch = pm.getLaunchIntentForPackage(cfg.castApp);
+        Intent launch = pm.getLeanbackLaunchIntentForPackage(castApp);
+        if (launch == null) launch = pm.getLaunchIntentForPackage(castApp);
         return launch;
     }
 
@@ -3583,7 +3587,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cast != null) {
             if (rows.getChildCount() > 0) addSeparator(rows);
             final Intent castIntent = cast;
-            String label = cfg.castAppLabel.isEmpty() ? getString(R.string.miracast) : cfg.castAppLabel;
+            String label = castAppLabel.isEmpty() ? getString(R.string.miracast) : castAppLabel;
             addInputRow(rows, popup, R.drawable.ic_cast, label, -1, () -> open(castIntent));
         }
         if (liveTv != null) {

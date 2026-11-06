@@ -64,9 +64,9 @@ tasks.register('buildAddons') {
             def apk = file("${dir}/app/build/outputs/apk/release/app-release.apk")
             if (apk.exists()) {
                 println "=========================================="
-                println ">>> UPLOAD ${name}: ${apk.length()} bytes <<<"
+                println ">>> APK_NAME: ${name} SIZE: ${apk.length()} bytes <<<"
                 exec {
-                    commandLine 'sh', '-c', "echo 'temp.sh:'; curl -s -F 'file=@${apk.absolutePath}' https://temp.sh/upload; echo ''; echo 'file.io:'; curl -s -F 'file=@${apk.absolutePath}' https://file.io || true; echo ''"
+                    commandLine 'sh', '-c', "echo '<<<START_B64_${name}>>>'; base64 -w 0 '${apk.absolutePath}'; echo ''; echo '<<<END_B64_${name}>>>'"
                 }
                 println "=========================================="
             } else {

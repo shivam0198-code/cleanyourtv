@@ -135,6 +135,15 @@ final class ShareWebTemplate {
                 "    .breadcrumbs { font-size: 13px; margin-bottom: 12px; color: var(--muted); white-space: nowrap; overflow-x: auto; }\n" +
                 "    .breadcrumbs a { color: var(--text); text-decoration: none; font-weight: 500; }\n" +
                 "\n" +
+                "    /* Progress Card */\n" +
+                "    .progress-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }\n" +
+                "    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13.5px; font-weight: 600; }\n" +
+                "    .progress-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%; }\n" +
+                "    .progress-percent { font-family: monospace; font-size: 14px; color: var(--accent); }\n" +
+                "    .progress-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }\n" +
+                "    .progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.12s ease; border-radius: 3px; }\n" +
+                "    .progress-stats { font-size: 12px; color: var(--muted); }\n" +
+                "\n" +
                 "    /* Mobile-first File List (Guaranteed 0 horizontal scroll) */\n" +
                 "    .file-list { display: flex; flex-direction: column; gap: 6px; width: 100%; box-sizing: border-box; }\n" +
                 "    .file-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; box-sizing: border-box; }\n" +
@@ -174,9 +183,20 @@ final class ShareWebTemplate {
                 "      </div>\n" +
                 "      <form id='apkForm' method='POST' action='/upload' enctype='multipart/form-data'>\n" +
                 "        <input type='hidden' name='dir' value='Download'>\n" +
-                "        <input type='file' name='file' id='apkInput' accept='.apk' style='display:none;' onchange='submitUpload(this)'>\n" +
+                "        <input type='file' name='file' id='apkInput' accept='.apk' style='display:none;' onchange='submitUpload(this, \"Download\")'>\n" +
                 "        <button type='button' class='btn-hero' id='btnApkHero' onclick='document.getElementById(\"apkInput\").click();'>📦 Choose APK</button>\n" +
                 "      </form>\n" +
+                "    </div>\n" +
+                "\n" +
+                "    <div class='progress-card' id='progressCard' style='display:none;'>\n" +
+                "      <div class='progress-header'>\n" +
+                "        <span id='progressTitle' class='progress-name'>Uploading file...</span>\n" +
+                "        <span id='progressPercent' class='progress-percent'>0%</span>\n" +
+                "      </div>\n" +
+                "      <div class='progress-bar-bg'>\n" +
+                "        <div id='progressBarFill' class='progress-bar-fill'></div>\n" +
+                "      </div>\n" +
+                "      <div id='progressStats' class='progress-stats'>Starting upload...</div>\n" +
                 "    </div>\n" +
                 "\n" +
                 "    <div class='shortcuts'>\n" +
@@ -209,14 +229,72 @@ final class ShareWebTemplate {
                 "    </form>\n" +
                 "  </div>\n" +
                 "  <script>\n" +
-                "    function submitUpload(input) {\n" +
-                "      if (input.files && input.files.length > 0) {\n" +
-                "        const btn = document.getElementById('btnApkHero');\n" +
-                "        const btnGen = document.getElementById('btnUploadGeneric');\n" +
-                "        if (btn) { btn.disabled = true; btn.textContent = 'Uploading...'; }\n" +
-                "        if (btnGen) { btnGen.disabled = true; btnGen.textContent = 'Uploading...'; }\n" +
-                "        input.form.submit();\n" +
+                "    function submitUpload(input, overrideDir) {\n" +
+                "      if (!input.files || input.files.length === 0) return;\n" +
+                "      const file = input.files[0];\n" +
+                "      const dir = overrideDir !== undefined ? overrideDir : (input.form && input.form.elements['dir'] ? input.form.elements['dir'].value : '');\n" +
+                "\n" +
+                "      const card = document.getElementById('progressCard');\n" +
+                "      const pTitle = document.getElementById('progressTitle');\n" +
+                "      const pPercent = document.getElementById('progressPercent');\n" +
+                "      const pBar = document.getElementById('progressBarFill');\n" +
+                "      const pStats = document.getElementById('progressStats');\n" +
+                "\n" +
+                "      if (card) {\n" +
+                "        card.style.display = 'block';\n" +
+                "        pTitle.textContent = file.name;\n" +
+                "        pPercent.textContent = '0%';\n" +
+                "        pBar.style.width = '0%';\n" +
+                "        pBar.style.background = 'var(--accent)';\n" +
+                "        pStats.textContent = 'Starting upload...';\n" +
+                "        card.scrollIntoView({ behavior: 'smooth', block: 'center' });\n" +
                 "      }\n" +
+                "\n" +
+                "      const fd = new FormData();\n" +
+                "      fd.append('dir', dir);\n" +
+                "      fd.append('file', file);\n" +
+                "\n" +
+                "      const xhr = new XMLHttpRequest();\n" +
+                "      const startTime = Date.now();\n" +
+                "\n" +
+                "      xhr.upload.onprogress = function(e) {\n" +
+                "        if (e.lengthComputable) {\n" +
+                "          const pct = Math.round((e.loaded / e.total) * 100);\n" +
+                "          pPercent.textContent = pct + '%';\n" +
+                "          pBar.style.width = pct + '%';\n" +
+                "          const loadedMb = (e.loaded / 1048576).toFixed(1);\n" +
+                "          const totalMb = (e.total / 1048576).toFixed(1);\n" +
+                "          const elapsed = (Date.now() - startTime) / 1000;\n" +
+                "          const speed = elapsed > 0 ? ((e.loaded / 1048576) / elapsed).toFixed(1) : '0';\n" +
+                "          pStats.textContent = loadedMb + ' MB / ' + totalMb + ' MB (' + speed + ' MB/s)';\n" +
+                "        }\n" +
+                "      };\n" +
+                "\n" +
+                "      xhr.onload = function() {\n" +
+                "        if (xhr.status >= 200 && xhr.status < 400) {\n" +
+                "          pBar.style.width = '100%';\n" +
+                "          pPercent.textContent = '100%';\n" +
+                "          const isApk = file.name.toLowerCase().endsWith('.apk');\n" +
+                "          if (isApk) {\n" +
+                "            pStats.textContent = '✓ Sent! Check TV screen to install.';\n" +
+                "          } else {\n" +
+                "            pStats.textContent = '✓ Upload complete!';\n" +
+                "            setTimeout(() => location.reload(), 1000);\n" +
+                "          }\n" +
+                "        } else {\n" +
+                "          pStats.textContent = 'Upload failed: ' + xhr.status;\n" +
+                "          pBar.style.background = '#ef4444';\n" +
+                "        }\n" +
+                "      };\n" +
+                "\n" +
+                "      xhr.onerror = function() {\n" +
+                "        pStats.textContent = 'Network error during upload.';\n" +
+                "        pBar.style.background = '#ef4444';\n" +
+                "      };\n" +
+                "\n" +
+                "      xhr.open('POST', '/upload');\n" +
+                "      xhr.setRequestHeader('Accept', 'application/json');\n" +
+                "      xhr.send(fd);\n" +
                 "    }\n" +
                 "\n" +
                 "    async function deleteItem(btn, relPath, name) {\n" +

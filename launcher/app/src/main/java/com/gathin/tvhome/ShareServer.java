@@ -32,6 +32,7 @@ final class ShareServer {
     private volatile boolean running = false;
 
     public interface UploadListener {
+        void onUploadProgress(String filename, int percent, long bytesReceived, long totalBytes);
         void onFileUploaded(File file);
     }
     private UploadListener uploadListener;
@@ -206,6 +207,11 @@ final class ShareServer {
             if (firstLine.startsWith(partDelimiter)) break;
         }
 
+        long totalContentBytes = 0;
+        try {
+            totalContentBytes = Long.parseLong(headers.getOrDefault("content-length", "0"));
+        } catch (Exception ignored) {}
+
         String targetDirRel = "";
         File uploadedFile = null;
         boolean isLast = false;
@@ -224,13 +230,13 @@ final class ShareServer {
 
             String cd = partHeaders.get("content-disposition");
             if (cd == null) {
-                isLast = streamPartToDiskOrMemory(in, targetDelim, null) != 0;
+                isLast = streamPartToDiskOrMemory(in, targetDelim, null, null, 0) != 0;
                 continue;
             }
 
             if (cd.contains("name=\"dir\"") && !cd.contains("filename=\"")) {
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                int ret = streamPartToDiskOrMemory(in, targetDelim, bos);
+                int ret = streamPartToDiskOrMemory(in, targetDelim, bos, null, 0);
                 isLast = (ret == 1);
                 targetDirRel = bos.toString("UTF-8").trim();
             } else if (cd.contains("filename=\"")) {
@@ -244,12 +250,12 @@ final class ShareServer {
                 File destFile = new File(destDir, filename);
 
                 try (FileOutputStream fos = new FileOutputStream(destFile)) {
-                    int ret = streamPartToDiskOrMemory(in, targetDelim, fos);
+                    int ret = streamPartToDiskOrMemory(in, targetDelim, fos, filename, totalContentBytes);
                     isLast = (ret == 1);
                 }
                 uploadedFile = destFile;
             } else {
-                int ret = streamPartToDiskOrMemory(in, targetDelim, null);
+                int ret = streamPartToDiskOrMemory(in, targetDelim, null, null, 0);
                 isLast = (ret == 1);
             }
         }
@@ -269,34 +275,89 @@ final class ShareServer {
         }
     }
 
-    private int streamPartToDiskOrMemory(InputStream in, byte[] targetDelim, OutputStream sink) throws IOException {
-        ByteArrayOutputStream matchBuf = new ByteArrayOutputStream();
-        int matchIdx = 0;
-        int c;
+    private int streamPartToDiskOrMemory(InputStream in, byte[] targetDelim, OutputStream sink,
+                                         String filename, long totalBytes) throws IOException {
+        int delimLen = targetDelim.length;
+        byte[] buffer = new byte[32768];
+        int carryLen = 0;
+        long bytesStreamed = 0;
+        int lastPercent = -1;
 
-        while ((c = in.read()) != -1) {
-            if (c == (targetDelim[matchIdx] & 0xFF)) {
-                matchBuf.write(c);
-                matchIdx++;
-                if (matchIdx == targetDelim.length) {
-                    int t1 = in.read();
-                    int t2 = in.read();
-                    if (t1 == '-' && t2 == '-') {
-                        readLine(in);
-                        return 1;
-                    }
-                    if (t1 == '\r' && t2 == '\n') {
-                        return 0;
-                    }
+        while (true) {
+            int read = in.read(buffer, carryLen, buffer.length - carryLen);
+            if (read == -1) return -1;
+            int totalInBuffer = carryLen + read;
+
+            int matchPos = indexOf(buffer, totalInBuffer, targetDelim);
+            if (matchPos != -1) {
+                if (matchPos > 0 && sink != null) {
+                    sink.write(buffer, 0, matchPos);
+                    bytesStreamed += matchPos;
+                }
+                if (uploadListener != null && filename != null && totalBytes > 0) {
+                    uploadListener.onUploadProgress(filename, 100, bytesStreamed, totalBytes);
+                }
+
+                int afterDelim = matchPos + delimLen;
+                int remaining = totalInBuffer - afterDelim;
+
+                int b1 = -1, b2 = -1;
+                if (remaining >= 2) {
+                    b1 = buffer[afterDelim] & 0xFF;
+                    b2 = buffer[afterDelim + 1] & 0xFF;
+                } else if (remaining == 1) {
+                    b1 = buffer[afterDelim] & 0xFF;
+                    b2 = in.read();
+                } else {
+                    b1 = in.read();
+                    b2 = in.read();
+                }
+
+                if (b1 == '-' && b2 == '-') {
+                    readLine(in);
+                    return 1;
+                }
+                if (b1 == '\r' && b2 == '\n') {
                     return 0;
                 }
-            } else {
-                if (matchIdx > 0) {
-                    if (sink != null) sink.write(matchBuf.toByteArray());
-                    matchBuf.reset();
-                    matchIdx = 0;
+                return 0;
+            }
+
+            if (totalInBuffer > delimLen - 1) {
+                int writeLen = totalInBuffer - (delimLen - 1);
+                if (sink != null) {
+                    sink.write(buffer, 0, writeLen);
+                    bytesStreamed += writeLen;
+                    if (uploadListener != null && filename != null && totalBytes > 0) {
+                        int pct = (int) Math.min(99, (bytesStreamed * 100) / totalBytes);
+                        if (pct != lastPercent) {
+                            lastPercent = pct;
+                            uploadListener.onUploadProgress(filename, pct, bytesStreamed, totalBytes);
+                        }
+                    }
                 }
-                if (sink != null) sink.write(c);
+                carryLen = delimLen - 1;
+                System.arraycopy(buffer, writeLen, buffer, 0, carryLen);
+            } else {
+                carryLen = totalInBuffer;
+            }
+        }
+    }
+
+    private static int indexOf(byte[] src, int srcLen, byte[] target) {
+        int targetLen = target.length;
+        if (srcLen < targetLen) return -1;
+        int max = srcLen - targetLen;
+        for (int i = 0; i <= max; i++) {
+            if (src[i] == target[0]) {
+                boolean match = true;
+                for (int j = 1; j < targetLen; j++) {
+                    if (src[i + j] != target[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) return i;
             }
         }
         return -1;

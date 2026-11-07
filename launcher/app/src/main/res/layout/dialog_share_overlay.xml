@@ -48,4 +48,34 @@
         android:fontFamily="@string/font_medium"
         android:letterSpacing="0.04" />
 
+    <LinearLayout
+        android:id="@+id/shareProgressBlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/shareProgressStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Receiving file..."
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:fontFamily="@string/font_medium" />
+
+        <ProgressBar
+            android:id="@+id/shareProgressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:progress="0"
+            android:progressTint="#FFFFFFFF"
+            android:progressBackgroundTint="#33FFFFFF" />
+    </LinearLayout>
+
 </LinearLayout>

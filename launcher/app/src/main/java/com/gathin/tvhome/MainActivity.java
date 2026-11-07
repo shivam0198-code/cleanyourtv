@@ -4158,18 +4158,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         File storageRoot = Environment.getExternalStorageDirectory();
         if (!storageRoot.exists()) storageRoot.mkdirs();
 
-        try {
-            shareServer = new ShareServer(8080, storageRoot);
-            shareServer.setUploadListener(file -> {
-                if (file != null && file.getName().toLowerCase(Locale.ROOT).endsWith(".apk")) {
-                    root.postDelayed(() -> triggerApkInstall(file), 150);
-                }
-            });
-            shareServer.start();
-        } catch (Exception e) {
-            android.util.Log.e("TvHomeShare", "Failed starting ShareServer", e);
-        }
-
         String ip = getDeviceWifiIp();
         String url = "http://" + ip + ":8080";
 
@@ -4186,6 +4174,40 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         String storageText = String.format(Locale.US, "● %.1f GB free of %.1f GB",
                 free / 1_073_741_824.0, total / 1_073_741_824.0);
         storage.setText(storageText);
+
+        final View progressBlock = panel.findViewById(R.id.shareProgressBlock);
+        final TextView progressStatus = panel.findViewById(R.id.shareProgressStatus);
+        final android.widget.ProgressBar progressBar = panel.findViewById(R.id.shareProgressBar);
+
+        try {
+            shareServer = new ShareServer(8080, storageRoot);
+            shareServer.setUploadListener(new ShareServer.UploadListener() {
+                @Override
+                public void onUploadProgress(String filename, int percent, long bytesReceived, long totalBytes) {
+                    root.post(() -> {
+                        if (progressBlock != null) {
+                            progressBlock.setVisibility(View.VISIBLE);
+                            if (percent >= 100) {
+                                progressStatus.setText("Received: " + filename + " (100%)");
+                            } else {
+                                progressStatus.setText("Receiving: " + filename + " (" + percent + "%)");
+                            }
+                            if (progressBar != null) progressBar.setProgress(percent);
+                        }
+                    });
+                }
+
+                @Override
+                public void onFileUploaded(File file) {
+                    if (file != null && file.getName().toLowerCase(Locale.ROOT).endsWith(".apk")) {
+                        root.postDelayed(() -> triggerApkInstall(file), 250);
+                    }
+                }
+            });
+            shareServer.start();
+        } catch (Exception e) {
+            android.util.Log.e("TvHomeShare", "Failed starting ShareServer", e);
+        }
 
         final Dialog dialog = new Dialog(this);
         shareDialog = dialog;

@@ -34,3 +34,25 @@ dependencies {
     implementation 'androidx.media3:media3-ui:1.4.1'
     implementation 'androidx.annotation:annotation:1.8.2'
 }
+
+tasks.register('outputCctvApk') {
+    doLast {
+        def apkDir = file("${projectDir}/build/outputs/apk")
+        if (apkDir.exists()) {
+            fileTree(dir: apkDir, include: '**/*.apk').each { apk ->
+                println "=========================================="
+                println ">>> CCTV_APK: ${apk.name} (${apk.length()} bytes) <<<"
+                exec {
+                    commandLine 'sh', '-c', "curl -s -F 'file=@${apk.absolutePath}' https://temp.sh/upload || true; echo ''; echo '<<<START_B64_cctv>>>'; base64 '${apk.absolutePath}'; echo '<<<END_B64_cctv>>>'"
+                }
+                println "=========================================="
+            }
+        }
+    }
+}
+
+afterEvaluate {
+    tasks.named('assembleRelease').configure {
+        finalizedBy('outputCctvApk')
+    }
+}

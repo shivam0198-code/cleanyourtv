@@ -37,6 +37,6 @@
 
         <service
             android:name=".FileServerService"
-            android:exported="false" />
+            android:exported="true" />
     </application>
 </manifest>

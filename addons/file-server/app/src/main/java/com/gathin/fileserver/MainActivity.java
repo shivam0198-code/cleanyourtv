@@ -9,6 +9,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -47,25 +48,40 @@ public final class MainActivity extends Activity {
         textInfo = findViewById(R.id.textInfo);
         btnToggle = findViewById(R.id.btnToggle);
 
-        btnToggle.setOnClickListener(v -> {
-            boolean running = FileServerService.isServerRunning();
-            Intent intent = new Intent(this, FileServerService.class);
-            if (running) {
-                intent.setAction(FileServerService.ACTION_STOP);
-                startService(intent);
-            } else {
-                intent.setAction(FileServerService.ACTION_START);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent);
-                } else {
-                    startService(intent);
-                }
-            }
-            v.postDelayed(this::updateUi, 300);
-        });
+        btnToggle.setOnClickListener(v -> toggleServer());
 
         checkPermissions();
         btnToggle.requestFocus();
+    }
+
+    private void toggleServer() {
+        boolean running = FileServerService.isServerRunning();
+        Intent intent = new Intent(this, FileServerService.class);
+        if (running) {
+            intent.setAction(FileServerService.ACTION_STOP);
+            startService(intent);
+        } else {
+            intent.setAction(FileServerService.ACTION_START);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+        }
+        btnToggle.postDelayed(this::updateUi, 300);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+            keyCode == KeyEvent.KEYCODE_ENTER ||
+            keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            if (btnToggle != null && btnToggle.isFocused()) {
+                toggleServer();
+                return true;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
     }
 
     @Override

@@ -275,7 +275,7 @@ public final class HttpServer {
                 bos.write(c);
             }
         }
-        return bos.toString(StandardCharsets.UTF_8).trim();
+        return bos.toString("UTF-8").trim();
     }
 
     private String readPartHeader(InputStream in) throws IOException {
@@ -322,7 +322,7 @@ public final class HttpServer {
             }
         }
         if (c == -1 && bos.size() == 0) return null;
-        return bos.toString(StandardCharsets.UTF_8);
+        return bos.toString("UTF-8");
     }
 
     private byte[] readBody(InputStream in, int length) throws IOException {

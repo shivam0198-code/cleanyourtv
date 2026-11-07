@@ -136,6 +136,13 @@ final class Config {
     final boolean iconOnlyButtons;
     /** The Inputs pill as a round icon button too (config.xml icon_only_inputs). */
     final boolean iconOnlyInputs;
+    /** Individual per-pill icon-only overrides (config.json) */
+    final boolean iconOnlyShare;
+    final boolean iconOnlyWifi;
+    final boolean iconOnlySettings;
+    /** Inputs dropdown popup alignment ("end" or "start") and X offset in dp. */
+    final String inputsMenuAlign;
+    final int inputsMenuOffsetX;
     /** With vpn_pill, the VPN pill as a round lock button (config.xml / theme icon_only_vpn). */
     final boolean iconOnlyVpn;
     /** Back on the Home screen opens the clock screensaver instead of doing nothing (config.xml / theme back_opens_clock). */
@@ -297,7 +304,13 @@ final class Config {
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean inputsCecStateOnly,
                    int openOnStartNetworkWait, boolean openOnStartOnWake, boolean iconOnlyVpn, String clockFormat, boolean backOpensClock, boolean glowSnap,
-                   String castApp, String castAppLabel) {
+                   String castApp, String castAppLabel,
+                   boolean iconOnlyShare, boolean iconOnlyWifi, boolean iconOnlySettings, String inputsMenuAlign, int inputsMenuOffsetX) {
+        this.iconOnlyShare = iconOnlyShare;
+        this.iconOnlyWifi = iconOnlyWifi;
+        this.iconOnlySettings = iconOnlySettings;
+        this.inputsMenuAlign = inputsMenuAlign;
+        this.inputsMenuOffsetX = inputsMenuOffsetX;
         this.castApp = castApp;
         this.castAppLabel = castAppLabel;
         this.handleViewInputs = handleViewInputs;
@@ -481,6 +494,11 @@ final class Config {
         boolean showInputsPill = res.getBoolean(R.bool.show_inputs_pill);
         boolean iconOnlyButtons = res.getBoolean(R.bool.icon_only_buttons);
         boolean iconOnlyInputs = res.getBoolean(R.bool.icon_only_inputs);
+        boolean iconOnlyShare = true;
+        boolean iconOnlyWifi = iconOnlyButtons;
+        boolean iconOnlySettings = true;
+        String inputsMenuAlign = "end";
+        int inputsMenuOffsetX = 0;
         boolean iconOnlyVpn = res.getBoolean(R.bool.icon_only_vpn);
         boolean backOpensClock = res.getBoolean(R.bool.back_opens_clock);
         boolean glowSnap = res.getBoolean(R.bool.glow_snap);
@@ -597,6 +615,11 @@ final class Config {
             showInputsPill = bool(json, "show_inputs_pill", showInputsPill);
             iconOnlyButtons = bool(json, "icon_only_buttons", iconOnlyButtons);
             iconOnlyInputs = bool(json, "icon_only_inputs", iconOnlyInputs);
+            iconOnlyShare = bool(json, "icon_only_share", iconOnlyShare);
+            iconOnlyWifi = bool(json, "icon_only_wifi", iconOnlyButtons);
+            iconOnlySettings = bool(json, "icon_only_settings", iconOnlyButtons);
+            inputsMenuAlign = string(json, "inputs_menu_align", inputsMenuAlign);
+            inputsMenuOffsetX = integer(json, "inputs_menu_offset_x", inputsMenuOffsetX, -300, 300);
             iconOnlyVpn = bool(json, "icon_only_vpn", iconOnlyVpn);
             backOpensClock = bool(json, "back_opens_clock", backOpensClock);
             glowSnap = bool(json, "glow_snap", glowSnap);
@@ -728,7 +751,8 @@ final class Config {
                 Math.max(0, Math.min(90, clockWallpaperDim)), clockGlow, glassStyle, singleRow && dockRow, dockBandAll, lunar, lunarOffset,
                 dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, inputsCecStateOnly,
                 Math.max(0, Math.min(600, openOnStartNetworkWait)), openOnStartOnWake, iconOnlyVpn, clockFormat, backOpensClock, glowSnap,
-                castApp, castAppLabel);
+                castApp, castAppLabel,
+                iconOnlyShare, iconOnlyWifi, iconOnlySettings, inputsMenuAlign, inputsMenuOffsetX);
     }
 
     /**

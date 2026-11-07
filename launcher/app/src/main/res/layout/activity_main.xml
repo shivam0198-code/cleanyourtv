@@ -334,8 +334,8 @@
 
                 <TextView
                     android:id="@+id/btnShare"
-                    style="@style/TopButtonIcon"
-                    android:contentDescription="@string/share"
+                    style="@style/TopButton"
+                    android:text="@string/share"
                     android:drawableStart="@drawable/ic_qr_code"
                     android:nextFocusDown="@+id/grid" />
 
@@ -381,8 +381,8 @@
 
                 <TextView
                     android:id="@+id/btnSettings"
-                    style="@style/TopButtonIcon"
-                    android:contentDescription="@string/settings"
+                    style="@style/TopButton"
+                    android:text="@string/settings"
                     android:drawableStart="@drawable/ic_settings"
                     android:nextFocusDown="@+id/grid" />
             </LinearLayout>

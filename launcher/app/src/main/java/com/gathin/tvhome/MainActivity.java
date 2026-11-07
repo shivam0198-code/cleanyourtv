@@ -823,11 +823,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         btnShare = findViewById(R.id.btnShare);
         btnShare.setOnClickListener(v -> showShareOverlay());
+        if (cfg.iconOnlyShare) makeIconOnly(btnShare);
+
         btnInputs = findViewById(R.id.btnInputs);
+        if (cfg.iconOnlyInputs) makeIconOnly((TextView) btnInputs);
+
         View btnSettings = findViewById(R.id.btnSettings);
-        if (!cfg.launcherSettingsButton) {
-            ((TextView) btnSettings).setText(null);
-        }
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnVpn.setOnClickListener(v -> openVpnPill());
@@ -839,6 +840,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (launcherSettingsButton) {
             ((TextView) btnSettings).setText(R.string.launcher_settings);
             ((TextView) btnSettings).setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_home_settings_pill, 0, 0, 0);
+        } else {
+            ((TextView) btnSettings).setText(R.string.settings);
         }
         btnSettings.setOnClickListener(v -> {
             if (launcherSettingsButton) startActivityForResult(
@@ -860,7 +863,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         addTopBarApps(cfg.topBarApps, cfg.launchActions);
         iconOnlyButtons = cfg.iconOnlyButtons;
         topMenu = cfg.topMenu;
-        wifiIconOnly = iconOnlyButtons && cfg.wifiLabelWidth <= 0;
+        wifiIconOnly = cfg.iconOnlyWifi && cfg.wifiLabelWidth <= 0;
         if (cfg.wifiStatusColor) {
             wifiPlainTint = btnWifi.getCompoundDrawableTintList();
             wifiOnlineTint = getColorStateList(R.color.pill_icon_online);
@@ -877,7 +880,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             btnWifi.setVisibility(View.GONE);
             ((TextView) btnSettings).setText(R.string.settings);
             ((TextView) btnSettings).setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_settings, 0, 0, 0);
-            if (!iconOnlyButtons) makeIconOnly((TextView) btnSettings);
+            if (cfg.iconOnlySettings) makeIconOnly((TextView) btnSettings);
             btnSettings.setOnClickListener(v -> showTopMenu());
             // The lone gear sits at the header's middle, not on its bottom line like the row of pills.
             LinearLayout topButtons = findViewById(R.id.topButtons);
@@ -887,12 +890,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             topButtons.setLayoutParams(tlp);
             topButtons.setGravity(Gravity.CENTER_VERTICAL);
         }
-        if (iconOnlyButtons) {
+        if (cfg.iconOnlyWifi) {
             if (cfg.wifiLabelWidth > 0) btnWifi.setMaxWidth(Math.round(cfg.wifiLabelWidth * density));
             else makeIconOnly(btnWifi);
+        }
+        if (cfg.iconOnlySettings) {
             makeIconOnly((TextView) btnSettings);
         }
-        if (cfg.iconOnlyInputs) makeIconOnly((TextView) btnInputs);
         iconOnlyVpn = vpnPill && cfg.iconOnlyVpn;
         if (iconOnlyVpn) {
             vpnPlainBackground = btnVpn.getBackground().getConstantState();
@@ -3620,8 +3624,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         popup.setWidth(Math.max(width, Math.min(panel.getMeasuredWidth(), (int) (360 * density))));
 
-        int alignment = getResources().getBoolean(R.bool.rtl_menu_bar) != underGear ? Gravity.END : Gravity.START;
-        dropIn(popup, panel, anchor, alignment);
+        boolean rtl = getResources().getBoolean(R.bool.rtl_menu_bar);
+        int alignment = "start".equalsIgnoreCase(cfg.inputsMenuAlign) ? Gravity.START : Gravity.END;
+        if (rtl != underGear) {
+            alignment = alignment == Gravity.START ? Gravity.END : Gravity.START;
+        }
+        dropIn(popup, panel, anchor, alignment, cfg.inputsMenuOffsetX);
         for (int i = 0; i < rows.getChildCount(); i++) {
             View child = rows.getChildAt(i);
             if (child.getVisibility() == View.VISIBLE && child.isFocusable()) { child.requestFocus(); break; }
@@ -3648,11 +3656,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Drop in: fade and unfold from the top edge, hanging under the anchor pill. */
     private void dropIn(PopupWindow popup, View panel, View anchor, int gravity) {
+        dropIn(popup, panel, anchor, gravity, 0);
+    }
+
+    private void dropIn(PopupWindow popup, View panel, View anchor, int gravity, int xOffsetDp) {
         panel.setAlpha(0f);
         panel.setPivotY(0f);
         panel.setScaleY(0.92f);
         panel.setTranslationY(-8 * density);
-        popup.showAsDropDown(anchor, 0, (int) (10 * density), gravity);
+        popup.showAsDropDown(anchor, Math.round(xOffsetDp * density), (int) (10 * density), gravity);
         panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(reducedMotion ? Motion.REDUCED_MS : 220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
     }

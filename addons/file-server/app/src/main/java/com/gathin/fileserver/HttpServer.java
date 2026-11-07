@@ -155,45 +155,109 @@ public final class HttpServer {
             sendRedirect(out, "/?msg=Invalid+upload+request");
             return;
         }
-        String boundary = "--" + ctype.substring(ctype.indexOf("boundary=") + 9).trim();
-        long clen = Long.parseLong(headers.getOrDefault("content-length", "0"));
 
-        byte[] bBytes = boundary.getBytes(StandardCharsets.ISO_8859_1);
-        String targetDirRel = "";
-        String uploadedFilename = "";
-
-        // Minimal multi-part stream parser
-        ByteArrayOutputStream chunk = new ByteArrayOutputStream();
-        int b;
-        while ((b = in.read()) != -1) {
-            chunk.write(b);
-            if (chunk.size() >= bBytes.length && endsWith(chunk.toByteArray(), bBytes)) {
-                break;
+        String boundary = null;
+        int bIdx = ctype.indexOf("boundary=");
+        if (bIdx != -1) {
+            boundary = ctype.substring(bIdx + 9).trim();
+            if (boundary.startsWith("\"") && boundary.endsWith("\"") && boundary.length() >= 2) {
+                boundary = boundary.substring(1, boundary.length() - 1);
             }
         }
+        if (boundary == null || boundary.isEmpty()) {
+            sendRedirect(out, "/?msg=Missing+boundary");
+            return;
+        }
 
-        while (true) {
-            String partHeader = readPartHeader(in);
-            if (partHeader == null || partHeader.isEmpty()) break;
+        String partDelimiter = "--" + boundary;
+        byte[] targetDelim = ("\r\n" + partDelimiter).getBytes(StandardCharsets.ISO_8859_1);
 
-            if (partHeader.contains("name=\"dir\"")) {
-                targetDirRel = readFieldValue(in, bBytes);
-            } else if (partHeader.contains("filename=\"")) {
-                int fStart = partHeader.indexOf("filename=\"") + 10;
-                int fEnd = partHeader.indexOf("\"", fStart);
-                uploadedFilename = (fStart != -1 && fEnd != -1) ? partHeader.substring(fStart, fEnd) : "uploaded_file";
+        // Find initial boundary line
+        String firstLine;
+        while ((firstLine = readLine(in)) != null) {
+            if (firstLine.startsWith(partDelimiter)) break;
+        }
+
+        String targetDirRel = "";
+        boolean isLast = false;
+
+        while (!isLast) {
+            Map<String, String> partHeaders = new HashMap<>();
+            String hLine;
+            while ((hLine = readLine(in)) != null && !hLine.isEmpty()) {
+                int colon = hLine.indexOf(':');
+                if (colon != -1) {
+                    partHeaders.put(hLine.substring(0, colon).trim().toLowerCase(Locale.US),
+                                    hLine.substring(colon + 1).trim());
+                }
+            }
+            if (partHeaders.isEmpty()) break;
+
+            String cd = partHeaders.get("content-disposition");
+            if (cd == null) {
+                isLast = streamPartToDiskOrMemory(in, targetDelim, null) != 0;
+                continue;
+            }
+
+            if (cd.contains("name=\"dir\"") && !cd.contains("filename=\"")) {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                int ret = streamPartToDiskOrMemory(in, targetDelim, bos);
+                isLast = (ret == 1);
+                targetDirRel = bos.toString("UTF-8").trim();
+            } else if (cd.contains("filename=\"")) {
+                int fStart = cd.indexOf("filename=\"") + 10;
+                int fEnd = cd.indexOf("\"", fStart);
+                String filename = (fStart != -1 && fEnd != -1) ? cd.substring(fStart, fEnd) : "uploaded_file";
+                filename = new File(filename).getName();
 
                 File destDir = resolvePath(targetDirRel);
                 if (!destDir.exists()) destDir.mkdirs();
-                File destFile = new File(destDir, new File(uploadedFilename).getName());
+                File destFile = new File(destDir, filename);
 
-                writeFileStream(in, destFile, bBytes);
+                try (FileOutputStream fos = new FileOutputStream(destFile)) {
+                    int ret = streamPartToDiskOrMemory(in, targetDelim, fos);
+                    isLast = (ret == 1);
+                }
             } else {
-                readFieldValue(in, bBytes);
+                int ret = streamPartToDiskOrMemory(in, targetDelim, null);
+                isLast = (ret == 1);
             }
         }
 
         sendRedirect(out, "/?path=" + URLEncoder.encode(targetDirRel, "UTF-8") + "&msg=Upload+successful");
+    }
+
+    private int streamPartToDiskOrMemory(InputStream in, byte[] targetDelim, OutputStream sink) throws IOException {
+        ByteArrayOutputStream matchBuf = new ByteArrayOutputStream();
+        int matchIdx = 0;
+        int c;
+
+        while ((c = in.read()) != -1) {
+            if (c == (targetDelim[matchIdx] & 0xFF)) {
+                matchBuf.write(c);
+                matchIdx++;
+                if (matchIdx == targetDelim.length) {
+                    int t1 = in.read();
+                    int t2 = in.read();
+                    if (t1 == '-' && t2 == '-') {
+                        readLine(in);
+                        return 1;
+                    }
+                    if (t1 == '\r' && t2 == '\n') {
+                        return 0;
+                    }
+                    return 0;
+                }
+            } else {
+                if (matchIdx > 0) {
+                    if (sink != null) sink.write(matchBuf.toByteArray());
+                    matchBuf.reset();
+                    matchIdx = 0;
+                }
+                if (sink != null) sink.write(c);
+            }
+        }
+        return -1;
     }
 
     private void handleDelete(InputStream in, OutputStream out, Map<String, String> headers) throws IOException {
@@ -230,61 +294,6 @@ public final class HttpServer {
         String clean = subPath.replace("..", "").replace("//", "/");
         if (clean.startsWith("/")) clean = clean.substring(1);
         return new File(rootDir, clean);
-    }
-
-    private void writeFileStream(InputStream in, File dest, byte[] boundary) throws IOException {
-        try (OutputStream fos = new FileOutputStream(dest)) {
-            byte[] buf = new byte[8192];
-            int bLen = boundary.length;
-            int matchIdx = 0;
-            ByteArrayOutputStream potential = new ByteArrayOutputStream();
-
-            int c;
-            while ((c = in.read()) != -1) {
-                if (c == boundary[matchIdx]) {
-                    potential.write(c);
-                    matchIdx++;
-                    if (matchIdx == bLen) {
-                        break; // boundary hit!
-                    }
-                } else {
-                    if (matchIdx > 0) {
-                        fos.write(potential.toByteArray());
-                        potential.reset();
-                        matchIdx = 0;
-                    }
-                    fos.write(c);
-                }
-            }
-        }
-    }
-
-    private String readFieldValue(InputStream in, byte[] boundary) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        int matchIdx = 0;
-        int c;
-        while ((c = in.read()) != -1) {
-            if (c == boundary[matchIdx]) {
-                matchIdx++;
-                if (matchIdx == boundary.length) break;
-            } else {
-                if (matchIdx > 0) {
-                    bos.write(boundary, 0, matchIdx);
-                    matchIdx = 0;
-                }
-                bos.write(c);
-            }
-        }
-        return bos.toString("UTF-8").trim();
-    }
-
-    private String readPartHeader(InputStream in) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = readLine(in)) != null && !line.isEmpty()) {
-            sb.append(line).append("\n");
-        }
-        return sb.toString();
     }
 
     private void deleteRecursive(File f) {
@@ -351,14 +360,6 @@ public final class HttpServer {
             } catch (Exception ignored) {}
         }
         return m;
-    }
-
-    private boolean endsWith(byte[] src, byte[] target) {
-        if (src.length < target.length) return false;
-        for (int i = 0; i < target.length; i++) {
-            if (src[src.length - target.length + i] != target[i]) return false;
-        }
-        return true;
     }
 
     private void sendResponse(OutputStream out, String status, String type, byte[] data) throws IOException {

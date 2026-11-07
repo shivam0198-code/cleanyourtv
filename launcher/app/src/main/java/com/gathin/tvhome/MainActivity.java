@@ -4123,11 +4123,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             shareServer = null;
         }
 
-        File root = Environment.getExternalStorageDirectory();
-        if (!root.exists()) root.mkdirs();
+        File storageRoot = Environment.getExternalStorageDirectory();
+        if (!storageRoot.exists()) storageRoot.mkdirs();
 
         try {
-            shareServer = new ShareServer(8080, root);
+            shareServer = new ShareServer(8080, storageRoot);
             shareServer.start();
         } catch (Exception e) {
             android.util.Log.e("TvHomeShare", "Failed starting ShareServer", e);
@@ -4136,7 +4136,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         String ip = getDeviceWifiIp();
         String url = "http://" + ip + ":8080";
 
-        View panel = getLayoutInflater().inflate(R.layout.dialog_share_overlay, root, false);
+        View panel = getLayoutInflater().inflate(R.layout.dialog_share_overlay, null);
         QrView qr = panel.findViewById(R.id.shareQr);
         qr.setText(url);
 
@@ -4144,8 +4144,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         link.setText(url);
 
         TextView storage = panel.findViewById(R.id.shareStorage);
-        long free = root.getFreeSpace();
-        long total = root.getTotalSpace();
+        long free = storageRoot.getFreeSpace();
+        long total = storageRoot.getTotalSpace();
         String storageText = String.format(Locale.US, "● %.1f GB free of %.1f GB",
                 free / 1_073_741_824.0, total / 1_073_741_824.0);
         storage.setText(storageText);

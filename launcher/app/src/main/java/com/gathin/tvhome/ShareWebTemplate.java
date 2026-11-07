@@ -37,7 +37,7 @@ final class ShareWebTemplate {
 
             rows.append("<tr><td>");
             if (isDir) {
-                rows.append("<a href='/?path=").append(URLEncoder.encode(fRel)).append("'>📁 <b>").append(escape(name)).append("</b></a>");
+                rows.append("<a href='/?path=").append(urlEncode(fRel)).append("'>📁 <b>").append(escape(name)).append("</b></a>");
             } else {
                 rows.append("📄 ").append(escape(name));
             }
@@ -45,7 +45,7 @@ final class ShareWebTemplate {
             rows.append("<td class='muted'>").append(dateStr).append("</td>");
             rows.append("<td class='actions'>");
             if (!isDir) {
-                rows.append("<a class='btn-action btn-dl' href='/download?path=").append(URLEncoder.encode(fRel)).append("'>Download</a> ");
+                rows.append("<a class='btn-action btn-dl' href='/download?path=").append(urlEncode(fRel)).append("'>Download</a> ");
             }
             rows.append("<form method='POST' action='/delete' style='display:inline;' onsubmit='return confirm(\"Delete ").append(escape(name)).append("?\");'>")
                 .append("<input type='hidden' name='path' value='").append(escape(fRel)).append("'>")
@@ -62,7 +62,7 @@ final class ShareWebTemplate {
                 if (p.isEmpty()) continue;
                 if (cur.length() > 0) cur.append("/");
                 cur.append(p);
-                breadcrumbs.append(" &rsaquo; <a href='/?path=").append(URLEncoder.encode(cur.toString())).append("'>").append(escape(p)).append("</a>");
+                breadcrumbs.append(" &rsaquo; <a href='/?path=").append(urlEncode(cur.toString())).append("'>").append(escape(p)).append("</a>");
             }
         }
 
@@ -187,5 +187,13 @@ final class ShareWebTemplate {
     private static String escape(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    private static String urlEncode(String s) {
+        try {
+            return URLEncoder.encode(s, "UTF-8");
+        } catch (Exception ignored) {
+            return s;
+        }
     }
 }

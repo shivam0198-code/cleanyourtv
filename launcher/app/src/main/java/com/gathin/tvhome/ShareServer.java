@@ -313,7 +313,8 @@ final class ShareServer {
             File f = resolvePath(targetPath);
             File parent = f.getParentFile();
             parentRel = parent != null ? getRelativePath(parent, rootDir) : "";
-            deleted = deleteRecursive(f);
+            deleteRecursive(f);
+            deleted = !f.exists();
         }
         String accept = headers.getOrDefault("accept", "");
         String xrw = headers.getOrDefault("x-requested-with", "");

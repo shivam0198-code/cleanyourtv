@@ -187,9 +187,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean advancedEffects;
     private TextView greeting;
     private View clockBlock;
-    private View btnShare;
+    private TextView btnShare;
     private ShareServer shareServer;
     private View btnInputs;
+    private String inputsMenuAlign = "end";
+    private int inputsMenuOffsetX = 0;
     /** config show_inputs_pill: false keeps the Inputs pill hidden even when the TV has inputs. */
     private boolean showInputsPill = true;
     private TextView btnWifi;
@@ -827,6 +829,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         btnInputs = findViewById(R.id.btnInputs);
         if (cfg.iconOnlyInputs) makeIconOnly((TextView) btnInputs);
+        inputsMenuAlign = cfg.inputsMenuAlign;
+        inputsMenuOffsetX = cfg.inputsMenuOffsetX;
 
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
@@ -3625,11 +3629,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setWidth(Math.max(width, Math.min(panel.getMeasuredWidth(), (int) (360 * density))));
 
         boolean rtl = getResources().getBoolean(R.bool.rtl_menu_bar);
-        int alignment = "start".equalsIgnoreCase(cfg.inputsMenuAlign) ? Gravity.START : Gravity.END;
+        int alignment = "start".equalsIgnoreCase(inputsMenuAlign) ? Gravity.START : Gravity.END;
         if (rtl != underGear) {
             alignment = alignment == Gravity.START ? Gravity.END : Gravity.START;
         }
-        dropIn(popup, panel, anchor, alignment, cfg.inputsMenuOffsetX);
+        dropIn(popup, panel, anchor, alignment, inputsMenuOffsetX);
         for (int i = 0; i < rows.getChildCount(); i++) {
             View child = rows.getChildAt(i);
             if (child.getVisibility() == View.VISIBLE && child.isFocusable()) { child.requestFocus(); break; }

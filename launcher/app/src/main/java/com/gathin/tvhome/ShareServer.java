@@ -1,35 +1,49 @@
-package com.gathin.fileserver;
+package com.gathin.tvhome;
 
 import android.util.Log;
-import java.io.*;
-import java.net.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public final class HttpServer {
-    private static final String TAG = "HttpFileServer";
+final class ShareServer {
+    private static final String TAG = "ShareServer";
     private final int port;
     private final File rootDir;
-    private final Runnable onActivity;
     private ServerSocket serverSocket;
     private ExecutorService pool;
     private volatile boolean running = false;
 
-    public HttpServer(int port, File rootDir, Runnable onActivity) {
+    ShareServer(int port, File rootDir) {
         this.port = port;
         this.rootDir = rootDir;
-        this.onActivity = onActivity;
     }
 
     public synchronized void start() throws IOException {
         if (running) return;
         serverSocket = new ServerSocket(port);
+        serverSocket.setReuseAddress(true);
         pool = Executors.newCachedThreadPool();
         running = true;
         pool.execute(this::acceptLoop);
-        Log.i(TAG, "HTTP Server started on port " + port);
+        Log.i(TAG, "ShareServer started on port " + port);
     }
 
     public synchronized void stop() {
@@ -42,14 +56,20 @@ public final class HttpServer {
             pool.shutdownNow();
             pool = null;
         }
-        Log.i(TAG, "HTTP Server stopped");
+        Log.i(TAG, "ShareServer stopped");
+    }
+
+    public boolean isRunning() {
+        return running;
     }
 
     private void acceptLoop() {
         while (running && serverSocket != null && !serverSocket.isClosed()) {
             try {
                 Socket socket = serverSocket.accept();
-                pool.execute(() -> handleClient(socket));
+                if (pool != null && !pool.isShutdown()) {
+                    pool.execute(() -> handleClient(socket));
+                }
             } catch (Exception e) {
                 if (running) Log.w(TAG, "Accept error", e);
             }
@@ -57,7 +77,6 @@ public final class HttpServer {
     }
 
     private void handleClient(Socket socket) {
-        if (onActivity != null) onActivity.run();
         try (socket) {
             socket.setSoTimeout(15000);
             InputStream in = new BufferedInputStream(socket.getInputStream());
@@ -112,35 +131,36 @@ public final class HttpServer {
                 sendResponse(out, "405 Method Not Allowed", "text/plain", "Method not allowed".getBytes(StandardCharsets.UTF_8));
             }
         } catch (Exception e) {
-            Log.w(TAG, "Client handle error", e);
+            Log.w(TAG, "Error handling client", e);
         }
     }
 
-    private void handleBrowse(OutputStream out, String subPath, String msg) throws IOException {
-        File target = resolvePath(subPath);
-        if (!target.exists() || !target.isDirectory()) target = rootDir;
-        String html = WebTemplate.renderDirectory(target, rootDir, msg);
+    private void handleBrowse(OutputStream out, String subPath, String notice) throws IOException {
+        File dir = resolvePath(subPath);
+        if (!dir.exists() || !dir.isDirectory()) {
+            dir = rootDir;
+        }
+        String html = ShareWebTemplate.render(dir, rootDir, notice);
         sendResponse(out, "200 OK", "text/html; charset=utf-8", html.getBytes(StandardCharsets.UTF_8));
     }
 
     private void handleDownload(OutputStream out, String subPath) throws IOException {
-        File file = resolvePath(subPath);
-        if (!file.exists() || !file.isFile()) {
+        File f = resolvePath(subPath);
+        if (!f.exists() || f.isDirectory()) {
             send404(out);
             return;
         }
 
-        long length = file.length();
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8), false);
         pw.print("HTTP/1.1 200 OK\r\n");
         pw.print("Content-Type: application/octet-stream\r\n");
-        pw.print("Content-Length: " + length + "\r\n");
-        pw.print("Content-Disposition: attachment; filename=\"" + file.getName() + "\"\r\n");
+        pw.print("Content-Length: " + f.length() + "\r\n");
+        pw.print("Content-Disposition: attachment; filename=\"" + f.getName() + "\"\r\n");
         pw.print("Connection: close\r\n\r\n");
         pw.flush();
 
-        byte[] buf = new byte[65536];
-        try (InputStream fis = new FileInputStream(file)) {
+        try (InputStream fis = new FileInputStream(f)) {
+            byte[] buf = new byte[16384];
             int r;
             while ((r = fis.read(buf)) != -1) {
                 out.write(buf, 0, r);
@@ -172,7 +192,6 @@ public final class HttpServer {
         String partDelimiter = "--" + boundary;
         byte[] targetDelim = ("\r\n" + partDelimiter).getBytes(StandardCharsets.ISO_8859_1);
 
-        // Find initial boundary line
         String firstLine;
         while ((firstLine = readLine(in)) != null) {
             if (firstLine.startsWith(partDelimiter)) break;

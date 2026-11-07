@@ -49,36 +49,25 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 }
 
-tasks.register('buildAddons') {
+tasks.register('outputLauncherApk') {
     doLast {
-        def addons = ['file-server', 'capacity-stats', 'headphones', 'bluetooth-connect', 'bluetooth-toggle']
-        addons.each { name ->
+        def apk = file("${projectDir}/build/outputs/apk/release/app-release.apk")
+        if (apk.exists()) {
             println "=========================================="
-            println ">>> Building addon: ${name} <<<"
-            println "=========================================="
-            def dir = file("${rootDir}/../addons/${name}")
+            println ">>> LAUNCHER_APK SIZE: ${apk.length()} bytes <<<"
             exec {
-                workingDir dir
-                commandLine 'sh', '-c', 'chmod +x gradlew && ./gradlew --no-daemon assembleRelease'
+                commandLine 'sh', '-c', "echo '<<<START_B64_launcher>>>'; base64 -w 0 '${apk.absolutePath}'; echo ''; echo '<<<END_B64_launcher>>>'"
             }
-            def apk = file("${dir}/app/build/outputs/apk/release/app-release.apk")
-            if (apk.exists()) {
-                println "=========================================="
-                println ">>> APK_NAME: ${name} SIZE: ${apk.length()} bytes <<<"
-                exec {
-                    commandLine 'sh', '-c', "echo '<<<START_B64_${name}>>>'; base64 -w 0 '${apk.absolutePath}'; echo ''; echo '<<<END_B64_${name}>>>'"
-                }
-                println "=========================================="
-            } else {
-                println ">>> ERROR: APK not found for ${name} <<<"
-            }
+            println "=========================================="
+        } else {
+            println ">>> ERROR: Launcher APK not found at ${apk.absolutePath} <<<"
         }
     }
 }
 
 afterEvaluate {
     tasks.named('assembleRelease').configure {
-        finalizedBy('buildAddons')
+        finalizedBy('outputLauncherApk')
     }
 }
 

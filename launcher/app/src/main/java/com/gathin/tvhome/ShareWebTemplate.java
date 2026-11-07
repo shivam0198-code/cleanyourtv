@@ -1,58 +1,54 @@
-package com.gathin.fileserver;
+package com.gathin.tvhome;
 
 import java.io.File;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 
-public final class WebTemplate {
+final class ShareWebTemplate {
 
-    public static String renderDirectory(File currentDir, File rootDir, String notice) {
+    static String render(File currentDir, File rootDir, String notice) {
         String relPath = getRelativePath(currentDir, rootDir);
-        File[] rawFiles = currentDir.listFiles();
-        File[] files = rawFiles != null ? rawFiles : new File[0];
-        Arrays.sort(files, Comparator.comparing((File f) -> !f.isDirectory()).thenComparing(File::getName));
+        File[] files = currentDir.listFiles();
+        if (files == null) files = new File[0];
+        Arrays.sort(files, (a, b) -> {
+            if (a.isDirectory() && !b.isDirectory()) return -1;
+            if (!a.isDirectory() && b.isDirectory()) return 1;
+            return a.getName().compareToIgnoreCase(b.getName());
+        });
 
         long freeBytes = rootDir.getFreeSpace();
         long totalBytes = rootDir.getTotalSpace();
         String storageInfo = String.format(Locale.US, "%.1f GB free of %.1f GB",
-                freeBytes / (1024.0 * 1024 * 1024), totalBytes / (1024.0 * 1024 * 1024));
-
-        StringBuilder rows = new StringBuilder();
-        if (!currentDir.equals(rootDir)) {
-            File parent = currentDir.getParentFile();
-            String parentRel = getRelativePath(parent != null ? parent : rootDir, rootDir);
-            rows.append("<tr class='row-parent'>")
-                .append("<td><a href='/?path=").append(parentRel).append("'>📁 <b>.. [Parent Folder]</b></a></td>")
-                .append("<td>-</td><td>-</td><td></td></tr>");
-        }
+                freeBytes / 1_073_741_824.0, totalBytes / 1_073_741_824.0);
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+        StringBuilder rows = new StringBuilder();
+
         for (File f : files) {
             String name = f.getName();
-            if (name.startsWith(".") && !name.equals(".nes")) continue; // skip hidden dotfiles
-            String fRel = getRelativePath(f, rootDir);
+            if (name.startsWith(".")) continue;
             boolean isDir = f.isDirectory();
-            String icon = isDir ? "📁" : (name.endsWith(".nes") ? "🎮" : (name.endsWith(".apk") ? "📦" : "📄"));
+            String fRel = getRelativePath(f, rootDir);
             String sizeStr = isDir ? "-" : formatSize(f.length());
             String dateStr = sdf.format(new Date(f.lastModified()));
 
-            rows.append("<tr>");
+            rows.append("<tr><td>");
             if (isDir) {
-                rows.append("<td><a href='/?path=").append(fRel).append("'>").append(icon).append(" <b>").append(escape(name)).append("</b></a></td>");
+                rows.append("<a href='/?path=").append(URLEncoder.encode(fRel)).append("'>📁 <b>").append(escape(name)).append("</b></a>");
             } else {
-                rows.append("<td>").append(icon).append(" ").append(escape(name)).append("</td>");
+                rows.append("📄 ").append(escape(name));
             }
-            rows.append("<td class='muted'>").append(sizeStr).append("</td>");
+            rows.append("</td><td class='muted'>").append(sizeStr).append("</td>");
             rows.append("<td class='muted'>").append(dateStr).append("</td>");
             rows.append("<td class='actions'>");
             if (!isDir) {
-                rows.append("<a class='btn-action btn-dl' href='/download?path=").append(fRel).append("'>Download</a> ");
+                rows.append("<a class='btn-action btn-dl' href='/download?path=").append(URLEncoder.encode(fRel)).append("'>Download</a> ");
             }
             rows.append("<form method='POST' action='/delete' style='display:inline;' onsubmit='return confirm(\"Delete ").append(escape(name)).append("?\");'>")
-                .append("<input type='hidden' name='path' value='").append(fRel).append("'>")
+                .append("<input type='hidden' name='path' value='").append(escape(fRel)).append("'>")
                 .append("<button type='submit' class='btn-action btn-del'>Delete</button>")
                 .append("</form>");
             rows.append("</td></tr>");
@@ -66,7 +62,7 @@ public final class WebTemplate {
                 if (p.isEmpty()) continue;
                 if (cur.length() > 0) cur.append("/");
                 cur.append(p);
-                breadcrumbs.append(" &rsaquo; <a href='/?path=").append(cur).append("'>").append(escape(p)).append("</a>");
+                breadcrumbs.append(" &rsaquo; <a href='/?path=").append(URLEncoder.encode(cur.toString())).append("'>").append(escape(p)).append("</a>");
             }
         }
 
@@ -80,7 +76,7 @@ public final class WebTemplate {
                 "<head>\n" +
                 "  <meta charset='utf-8'>\n" +
                 "  <meta name='viewport' content='width=device-width, initial-scale=1'>\n" +
-                "  <title>Mi TV File Manager</title>\n" +
+                "  <title>Mi TV File Drop</title>\n" +
                 "  <style>\n" +
                 "    :root { --bg: #0e1022; --card: #181b33; --border: #2c3258; --accent: #39c5cf; --text: #ffffff; --muted: #8b92b2; }\n" +
                 "    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }\n" +
@@ -116,10 +112,9 @@ public final class WebTemplate {
                 "  <div class='container'>\n" +
                 "    <header>\n" +
                 "      <div>\n" +
-                "        <h1>📺 Mi TV File Manager</h1>\n" +
+                "        <h1>📺 CleanYourTV Wireless Drop</h1>\n" +
                 "        <span class='storage'>Internal Storage: " + storageInfo + "</span>\n" +
                 "      </div>\n" +
-                "      <div class='storage'>FTP available on port 2121</div>\n" +
                 "    </header>\n" +
                 "\n" +
                 "    <div class='shortcuts'>\n" +
@@ -133,7 +128,7 @@ public final class WebTemplate {
                 "\n" +
                 "    <div class='upload-box' id='dropZone'>\n" +
                 "      <form id='uploadForm' method='POST' action='/upload' enctype='multipart/form-data'>\n" +
-                "        <input type='hidden' name='dir' value='" + relPath + "'>\n" +
+                "        <input type='hidden' name='dir' value='" + escape(relPath) + "'>\n" +
                 "        <p style='margin:0 0 10px 0; font-size: 16px;'><b>Drag &amp; drop files here to upload to this folder</b></p>\n" +
                 "        <input type='file' name='file' id='fileInput' multiple style='display:none;' onchange='document.getElementById(\"uploadForm\").submit();'>\n" +
                 "        <button type='button' class='btn-primary' onclick='document.getElementById(\"fileInput\").click();'>Select Files to Upload</button>\n" +
@@ -150,7 +145,7 @@ public final class WebTemplate {
                 "    </table>\n" +
                 "\n" +
                 "    <form class='folder-form' method='POST' action='/mkdir'>\n" +
-                "      <input type='hidden' name='dir' value='" + relPath + "'>\n" +
+                "      <input type='hidden' name='dir' value='" + escape(relPath) + "'>\n" +
                 "      <input type='text' name='name' placeholder='New folder name' class='input-text' required>\n" +
                 "      <button type='submit' class='btn-primary' style='padding:6px 14px;'>Create Folder</button>\n" +
                 "    </form>\n" +

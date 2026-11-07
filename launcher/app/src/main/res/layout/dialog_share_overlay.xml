@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="@drawable/glass_panel"
+    android:paddingStart="36dp"
+    android:paddingEnd="36dp"
+    android:paddingTop="28dp"
+    android:paddingBottom="28dp"
+    android:elevation="12dp">
+
+    <TextView
+        android:id="@+id/shareTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/share_overlay_title"
+        android:textColor="#FFFFFFFF"
+        android:textSize="20sp"
+        android:fontFamily="@string/font_medium"
+        android:letterSpacing="-0.01"
+        android:includeFontPadding="false" />
+
+    <com.gathin.tvhome.QrView
+        android:id="@+id/shareQr"
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:layout_marginTop="22dp" />
+
+    <TextView
+        android:id="@+id/shareLink"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:textColor="#B3FFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.02" />
+
+    <TextView
+        android:id="@+id/shareStorage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:textColor="#80FFFFFF"
+        android:textSize="14sp"
+        android:fontFamily="@string/font_medium"
+        android:letterSpacing="0.04" />
+
+</LinearLayout>

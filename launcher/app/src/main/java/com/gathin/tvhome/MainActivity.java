@@ -89,6 +89,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.util.Set;
 
 /**
@@ -184,6 +187,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean advancedEffects;
     private TextView greeting;
     private View clockBlock;
+    private View btnShare;
+    private ShareServer shareServer;
     private View btnInputs;
     /** config show_inputs_pill: false keeps the Inputs pill hidden even when the TV has inputs. */
     private boolean showInputsPill = true;
@@ -816,8 +821,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
 
+        btnShare = findViewById(R.id.btnShare);
+        btnShare.setOnClickListener(v -> showShareOverlay());
         btnInputs = findViewById(R.id.btnInputs);
         View btnSettings = findViewById(R.id.btnSettings);
+        if (!cfg.launcherSettingsButton) {
+            ((TextView) btnSettings).setText(null);
+        }
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnVpn.setOnClickListener(v -> openVpnPill());
@@ -905,12 +915,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 focusTile(singleRow ? lastFocused : lastFocused % COLUMNS);
                 return true;
             }
-            int firstButton = btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : firstTopButton().getId();
+            int firstButton = (btnShare != null && btnShare.getVisibility() == View.VISIBLE) ? R.id.btnShare
+                    : (btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : firstTopButton().getId());
             int leftButton = rtlMenuBar ? R.id.btnSettings : firstButton;
             int rightButton = rtlMenuBar ? firstButton : R.id.btnSettings;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return v.getId() == leftButton;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
         };
+        if (btnShare != null) btnShare.setOnKeyListener(pillKeys);
         btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnVpn.setOnKeyListener(pillKeys);
@@ -919,7 +931,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnLibraryTop.setOnKeyListener(pillKeys);
         for (View button : topAppButtons) button.setOnKeyListener(pillKeys);
         if (advancedEffects) {
-            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnSettings));
+            List<View> pills = new ArrayList<>(Arrays.asList(btnShare, btnInputs, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnSettings));
             pills.addAll(topAppButtons);
             for (View button : pills) {
                 button.setOnFocusChangeListener((view, focused) -> view.animate()
@@ -1376,6 +1388,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (shareServer != null) {
+            shareServer.stop();
+            shareServer = null;
+        }
         RemoteKeys.release(this);
         cancelHoldOk();
         if (gameDay != null) gameDay.shutdown();
@@ -2557,7 +2573,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int n = bar.getChildCount();
         for (int k = 0; k < n; k++) {
             View button = bar.getChildAt(rtl ? n - 1 - k : k);
-            if (button != btnInputs && button.getVisibility() == View.VISIBLE) return button;
+            if (button != btnShare && button != btnInputs && button.getVisibility() == View.VISIBLE) return button;
         }
         return findViewById(R.id.btnSettings);
     }
@@ -4099,5 +4115,79 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             default:
                 return getString(R.string.card_state_new);
         }
+    }
+
+    private void showShareOverlay() {
+        if (shareServer != null) {
+            shareServer.stop();
+            shareServer = null;
+        }
+
+        File root = Environment.getExternalStorageDirectory();
+        if (!root.exists()) root.mkdirs();
+
+        try {
+            shareServer = new ShareServer(8080, root);
+            shareServer.start();
+        } catch (Exception e) {
+            android.util.Log.e("TvHomeShare", "Failed starting ShareServer", e);
+        }
+
+        String ip = getDeviceWifiIp();
+        String url = "http://" + ip + ":8080";
+
+        View panel = getLayoutInflater().inflate(R.layout.dialog_share_overlay, root, false);
+        QrView qr = panel.findViewById(R.id.shareQr);
+        qr.setText(url);
+
+        TextView link = panel.findViewById(R.id.shareLink);
+        link.setText(url);
+
+        TextView storage = panel.findViewById(R.id.shareStorage);
+        long free = root.getFreeSpace();
+        long total = root.getTotalSpace();
+        String storageText = String.format(Locale.US, "● %.1f GB free of %.1f GB",
+                free / 1_073_741_824.0, total / 1_073_741_824.0);
+        storage.setText(storageText);
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(panel);
+        dialog.setCanceledOnTouchOutside(true);
+        Window w = dialog.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            w.setLayout((int) (440 * density), ViewGroup.LayoutParams.WRAP_CONTENT);
+            w.setDimAmount(0.6f);
+        }
+
+        dialog.setOnDismissListener(d -> {
+            if (shareServer != null) {
+                shareServer.stop();
+                shareServer = null;
+            }
+        });
+
+        dialog.show();
+    }
+
+    private String getDeviceWifiIp() {
+        String fallback = null;
+        try {
+            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface nif : interfaces) {
+                if (nif.isLoopback() || !nif.isUp()) continue;
+                boolean isPreferred = nif.getName().startsWith("wlan") || nif.getName().startsWith("eth");
+                List<InetAddress> addrs = Collections.list(nif.getInetAddresses());
+                for (InetAddress addr : addrs) {
+                    if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
+                        String host = addr.getHostAddress();
+                        if (isPreferred) return host;
+                        if (fallback == null) fallback = host;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return fallback != null ? fallback : "127.0.0.1";
     }
 }

@@ -1,0 +1,10 @@
+<resources>
+    <color name="bg_dark">#0A0A0C</color>
+    <color name="card_bg">#14141A</color>
+    <color name="card_border">#252533</color>
+    <color name="focus_cyan">#00E5FF</color>
+    <color name="accent_green">#00E676</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_muted">#8E8EA6</color>
+    <color name="pill_bg">#CC000000</color>
+</resources>

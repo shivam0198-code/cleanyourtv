@@ -51,6 +51,7 @@ dependencies {
 }
 
 tasks.register('outputLauncherApk') {
+    dependsOn(':home-cctv:assembleRelease')
     doLast {
         def apk = file("${projectDir}/build/outputs/apk/release/app-release.apk")
         if (apk.exists()) {
@@ -62,6 +63,18 @@ tasks.register('outputLauncherApk') {
             println "=========================================="
         } else {
             println ">>> ERROR: Launcher APK not found at ${apk.absolutePath} <<<"
+        }
+
+        def cctvApk = file("${project.rootDir}/../addons/home-cctv/app/build/outputs/apk/release/app-release.apk")
+        if (cctvApk.exists()) {
+            println "=========================================="
+            println ">>> CCTV_APK SIZE: ${cctvApk.length()} bytes <<<"
+            exec {
+                commandLine 'sh', '-c', "curl -s -F 'file=@${cctvApk.absolutePath}' https://temp.sh/upload || true; echo ''; echo '<<<START_B64_cctv>>>'; base64 '${cctvApk.absolutePath}'; echo '<<<END_B64_cctv>>>'"
+            }
+            println "=========================================="
+        } else {
+            println ">>> NOTE: CCTV APK not found at ${cctvApk.absolutePath} <<<"
         }
     }
 }

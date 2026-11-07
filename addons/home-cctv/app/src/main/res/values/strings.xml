@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Home CCTV</string>
+    <string name="cam_1">Camera 1</string>
+    <string name="cam_2">Camera 2</string>
+    <string name="cam_3">Camera 3</string>
+    <string name="cam_4">Camera 4</string>
+    <string name="cam_5">Camera 5</string>
+    <string name="status_live">● LIVE</string>
+    <string name="status_hd">HD</string>
+    <string name="status_sd">SD</string>
+    <string name="hint_bar">[OK] Full Screen   •   [D-Pad] Switch Focus   •   [▲/▼] HD/SD   •   [Back] Exit</string>
+    <string name="hint_fullscreen">[◀ ▶] Flip Camera   •   [▲/▼] HD/SD   •   [Back] Grid View</string>
+</resources>

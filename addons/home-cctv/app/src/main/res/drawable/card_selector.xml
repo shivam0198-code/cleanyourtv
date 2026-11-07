@@ -1,0 +1,16 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="14dp" />
+            <solid android:color="#1C1C26" />
+            <stroke android:width="3dp" android:color="@color/focus_cyan" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="14dp" />
+            <solid android:color="@color/card_bg" />
+            <stroke android:width="1.5dp" android:color="@color/card_border" />
+        </shape>
+    </item>
+</selector>

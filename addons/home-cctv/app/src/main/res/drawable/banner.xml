@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <!-- Dark Background -->
+    <path android:fillColor="#0A0A0C" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#14141E" android:pathData="M16,16h288v148h-288z" />
+    <!-- CCTV Camera Body -->
+    <path android:fillColor="#00E5FF" android:pathData="M110,65h75l25,25h-100z" />
+    <path android:fillColor="#00B4D8" android:pathData="M110,90h100l-20,25h-80z" />
+    <!-- Lens / IR Ring -->
+    <path android:fillColor="#0A0A0C" android:pathData="M190,75a18,18 0 1,0 0,36a18,18 0 1,0 0,-36" />
+    <path android:fillColor="#00E676" android:pathData="M190,83a10,10 0 1,0 0,20a10,10 0 1,0 0,-20" />
+    <!-- Camera Mount -->
+    <path android:fillColor="#3A3A4E" android:pathData="M95,85h20v10h-20z M85,75h12v30h-12z" />
+</vector>

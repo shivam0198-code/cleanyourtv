@@ -1,5 +1,8 @@
 package com.gathin.tvhome;
 
+import android.content.Context;
+import android.net.Uri;
+import android.provider.MediaStore;
 import android.util.Log;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -25,6 +28,7 @@ import java.util.concurrent.Executors;
 
 final class ShareServer {
     private static final String TAG = "ShareServer";
+    private final Context context;
     private final int port;
     private final File rootDir;
     private ServerSocket serverSocket;
@@ -41,9 +45,14 @@ final class ShareServer {
         this.uploadListener = listener;
     }
 
-    ShareServer(int port, File rootDir) {
+    ShareServer(Context context, int port, File rootDir) {
+        this.context = context;
         this.port = port;
         this.rootDir = rootDir;
+    }
+
+    ShareServer(int port, File rootDir) {
+        this(null, port, rootDir);
     }
 
     public synchronized void start() throws IOException {
@@ -195,15 +204,16 @@ final class ShareServer {
             }
         }
         if (boundary == null || boundary.isEmpty()) {
-            sendRedirect(out, "/?msg=Missing+boundary");
+            sendResponse(out, "400 Bad Request", "application/json", "{\"ok\":false,\"error\":\"Missing boundary\"}".getBytes(StandardCharsets.UTF_8));
             return;
         }
 
         String partDelimiter = "--" + boundary;
         byte[] targetDelim = ("\r\n" + partDelimiter).getBytes(StandardCharsets.ISO_8859_1);
 
+        MultipartReader mr = new MultipartReader(in);
         String firstLine;
-        while ((firstLine = readLine(in)) != null) {
+        while ((firstLine = mr.readLine()) != null) {
             if (firstLine.startsWith(partDelimiter)) break;
         }
 
@@ -219,7 +229,7 @@ final class ShareServer {
         while (!isLast) {
             Map<String, String> partHeaders = new HashMap<>();
             String hLine;
-            while ((hLine = readLine(in)) != null && !hLine.isEmpty()) {
+            while ((hLine = mr.readLine()) != null && !hLine.isEmpty()) {
                 int colon = hLine.indexOf(':');
                 if (colon != -1) {
                     partHeaders.put(hLine.substring(0, colon).trim().toLowerCase(Locale.US),
@@ -230,14 +240,13 @@ final class ShareServer {
 
             String cd = partHeaders.get("content-disposition");
             if (cd == null) {
-                isLast = streamPartToDiskOrMemory(in, targetDelim, null, null, 0) != 0;
+                isLast = mr.streamPart(targetDelim, null, null);
                 continue;
             }
 
             if (cd.contains("name=\"dir\"") && !cd.contains("filename=\"")) {
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                int ret = streamPartToDiskOrMemory(in, targetDelim, bos, null, 0);
-                isLast = (ret == 1);
+                isLast = mr.streamPart(targetDelim, bos, null);
                 targetDirRel = bos.toString("UTF-8").trim();
             } else if (cd.contains("filename=\"")) {
                 int fStart = cd.indexOf("filename=\"") + 10;
@@ -249,14 +258,29 @@ final class ShareServer {
                 if (!destDir.exists()) destDir.mkdirs();
                 File destFile = new File(destDir, filename);
 
+                final long total = totalContentBytes;
+                final String fn = filename;
+                final int[] lastPercent = {-1};
+
                 try (FileOutputStream fos = new FileOutputStream(destFile)) {
-                    int ret = streamPartToDiskOrMemory(in, targetDelim, fos, filename, totalContentBytes);
-                    isLast = (ret == 1);
+                    isLast = mr.streamPart(targetDelim, fos, bytesStreamed -> {
+                        if (uploadListener != null && total > 0) {
+                            int pct = (int) Math.min(99, (bytesStreamed * 100) / total);
+                            if (pct != lastPercent[0]) {
+                                lastPercent[0] = pct;
+                                uploadListener.onUploadProgress(fn, pct, bytesStreamed, total);
+                            }
+                        } else if (uploadListener != null) {
+                            uploadListener.onUploadProgress(fn, -1, bytesStreamed, 0);
+                        }
+                    });
+                }
+                if (uploadListener != null) {
+                    uploadListener.onUploadProgress(filename, 100, destFile.length(), destFile.length());
                 }
                 uploadedFile = destFile;
             } else {
-                int ret = streamPartToDiskOrMemory(in, targetDelim, null, null, 0);
-                isLast = (ret == 1);
+                isLast = mr.streamPart(targetDelim, null, null);
             }
         }
 
@@ -275,92 +299,137 @@ final class ShareServer {
         }
     }
 
-    private int streamPartToDiskOrMemory(InputStream in, byte[] targetDelim, OutputStream sink,
-                                         String filename, long totalBytes) throws IOException {
-        int delimLen = targetDelim.length;
-        byte[] buffer = new byte[32768];
-        int carryLen = 0;
-        long bytesStreamed = 0;
-        int lastPercent = -1;
+    private static final class MultipartReader {
+        private final InputStream in;
+        private final byte[] buf = new byte[65536];
+        private int head = 0;
+        private int tail = 0;
+        private boolean eof = false;
 
-        while (true) {
-            int read = in.read(buffer, carryLen, buffer.length - carryLen);
-            if (read == -1) return -1;
-            int totalInBuffer = carryLen + read;
-
-            int matchPos = indexOf(buffer, totalInBuffer, targetDelim);
-            if (matchPos != -1) {
-                if (matchPos > 0 && sink != null) {
-                    sink.write(buffer, 0, matchPos);
-                    bytesStreamed += matchPos;
-                }
-                if (uploadListener != null && filename != null && totalBytes > 0) {
-                    uploadListener.onUploadProgress(filename, 100, bytesStreamed, totalBytes);
-                }
-
-                int afterDelim = matchPos + delimLen;
-                int remaining = totalInBuffer - afterDelim;
-
-                int b1 = -1, b2 = -1;
-                if (remaining >= 2) {
-                    b1 = buffer[afterDelim] & 0xFF;
-                    b2 = buffer[afterDelim + 1] & 0xFF;
-                } else if (remaining == 1) {
-                    b1 = buffer[afterDelim] & 0xFF;
-                    b2 = in.read();
-                } else {
-                    b1 = in.read();
-                    b2 = in.read();
-                }
-
-                if (b1 == '-' && b2 == '-') {
-                    readLine(in);
-                    return 1;
-                }
-                if (b1 == '\r' && b2 == '\n') {
-                    return 0;
-                }
-                return 0;
-            }
-
-            if (totalInBuffer > delimLen - 1) {
-                int writeLen = totalInBuffer - (delimLen - 1);
-                if (sink != null) {
-                    sink.write(buffer, 0, writeLen);
-                    bytesStreamed += writeLen;
-                    if (uploadListener != null && filename != null && totalBytes > 0) {
-                        int pct = (int) Math.min(99, (bytesStreamed * 100) / totalBytes);
-                        if (pct != lastPercent) {
-                            lastPercent = pct;
-                            uploadListener.onUploadProgress(filename, pct, bytesStreamed, totalBytes);
-                        }
-                    }
-                }
-                carryLen = delimLen - 1;
-                System.arraycopy(buffer, writeLen, buffer, 0, carryLen);
-            } else {
-                carryLen = totalInBuffer;
-            }
+        MultipartReader(InputStream in) {
+            this.in = in;
         }
-    }
 
-    private static int indexOf(byte[] src, int srcLen, byte[] target) {
-        int targetLen = target.length;
-        if (srcLen < targetLen) return -1;
-        int max = srcLen - targetLen;
-        for (int i = 0; i <= max; i++) {
-            if (src[i] == target[0]) {
-                boolean match = true;
-                for (int j = 1; j < targetLen; j++) {
-                    if (src[i + j] != target[j]) {
-                        match = false;
+        private boolean fill() throws IOException {
+            if (eof) return false;
+            if (head > 0) {
+                int rem = tail - head;
+                if (rem > 0) {
+                    System.arraycopy(buf, head, buf, 0, rem);
+                }
+                head = 0;
+                tail = rem;
+            }
+            int space = buf.length - tail;
+            if (space <= 0) return true;
+            int r = in.read(buf, tail, space);
+            if (r <= 0) {
+                eof = true;
+                return tail > head;
+            }
+            tail += r;
+            return true;
+        }
+
+        public String readLine() throws IOException {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            while (true) {
+                if (head >= tail) {
+                    if (!fill()) {
+                        if (baos.size() == 0) return null;
                         break;
                     }
                 }
-                if (match) return i;
+                byte b = buf[head++];
+                if (b == '\n') {
+                    break;
+                } else if (b == '\r') {
+                    if (head >= tail) fill();
+                    if (head < tail && buf[head] == '\n') {
+                        head++;
+                    }
+                    break;
+                } else {
+                    baos.write(b);
+                }
+            }
+            return baos.toString("UTF-8");
+        }
+
+        public interface ProgressSink {
+            void onProgress(long totalBytesStreamed);
+        }
+
+        public boolean streamPart(byte[] delim, OutputStream sink, ProgressSink progress) throws IOException {
+            int delimLen = delim.length;
+            long bytesStreamed = 0;
+            while (true) {
+                int match = indexOf(buf, head, tail, delim);
+                if (match != -1) {
+                    int writeLen = match - head;
+                    if (writeLen > 0 && sink != null) {
+                        sink.write(buf, head, writeLen);
+                        bytesStreamed += writeLen;
+                        if (progress != null) progress.onProgress(bytesStreamed);
+                    }
+                    if (sink != null) sink.flush();
+
+                    head = match + delimLen;
+                    while (tail - head < 2 && !eof) {
+                        fill();
+                    }
+
+                    boolean isLast = false;
+                    if (tail - head >= 2 && buf[head] == '-' && buf[head + 1] == '-') {
+                        isLast = true;
+                        head += 2;
+                    }
+                    readLine();
+                    return isLast;
+                }
+
+                int available = tail - head;
+                if (available > delimLen - 1) {
+                    int writeLen = available - (delimLen - 1);
+                    if (sink != null) {
+                        sink.write(buf, head, writeLen);
+                        bytesStreamed += writeLen;
+                        if (progress != null) progress.onProgress(bytesStreamed);
+                    }
+                    head += writeLen;
+                }
+
+                if (!fill()) {
+                    int rem = tail - head;
+                    if (rem > 0 && sink != null) {
+                        sink.write(buf, head, rem);
+                        bytesStreamed += rem;
+                        if (progress != null) progress.onProgress(bytesStreamed);
+                    }
+                    if (sink != null) sink.flush();
+                    head = tail;
+                    return true;
+                }
             }
         }
-        return -1;
+
+        private static int indexOf(byte[] src, int start, int end, byte[] target) {
+            int targetLen = target.length;
+            int max = end - targetLen;
+            for (int i = start; i <= max; i++) {
+                if (src[i] == target[0]) {
+                    boolean match = true;
+                    for (int j = 1; j < targetLen; j++) {
+                        if (src[i + j] != target[j]) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) return i;
+                }
+            }
+            return -1;
+        }
     }
 
     private void handleDelete(InputStream in, OutputStream out, Map<String, String> headers) throws IOException {
@@ -374,16 +443,16 @@ final class ShareServer {
             File f = resolvePath(targetPath);
             File parent = f.getParentFile();
             parentRel = parent != null ? getRelativePath(parent, rootDir) : "";
-            deleteRecursive(f);
-            deleted = !f.exists();
+            deleted = deleteTarget(f);
         }
         String accept = headers.getOrDefault("accept", "");
         String xrw = headers.getOrDefault("x-requested-with", "");
         if (accept.contains("application/json") || "XMLHttpRequest".equalsIgnoreCase(xrw)) {
-            String json = "{\"ok\":" + deleted + "}";
-            sendResponse(out, "200 OK", "application/json", json.getBytes(StandardCharsets.UTF_8));
+            String status = deleted ? "200 OK" : "400 Bad Request";
+            String json = "{\"ok\":" + deleted + (deleted ? "" : ",\"error\":\"Could not delete file or folder\"") + "}";
+            sendResponse(out, status, "application/json", json.getBytes(StandardCharsets.UTF_8));
         } else {
-            sendRedirect(out, "/?path=" + URLEncoder.encode(parentRel, "UTF-8") + "&msg=Deleted");
+            sendRedirect(out, "/?path=" + URLEncoder.encode(parentRel, "UTF-8") + "&msg=" + (deleted ? "Deleted" : "Delete+failed"));
         }
     }
 
@@ -403,17 +472,45 @@ final class ShareServer {
 
     private File resolvePath(String subPath) {
         if (subPath == null || subPath.trim().isEmpty()) return rootDir;
-        String clean = subPath.replace("..", "").replace("//", "/");
+        String clean = subPath.replace("..", "").replace("//", "/").trim();
+        if (clean.startsWith("/storage/emulated/0/")) {
+            clean = clean.substring("/storage/emulated/0/".length());
+        } else if (clean.startsWith("/sdcard/")) {
+            clean = clean.substring("/sdcard/".length());
+        } else if (clean.startsWith("sdcard/")) {
+            clean = clean.substring("sdcard/".length());
+        }
         if (clean.startsWith("/")) clean = clean.substring(1);
         return new File(rootDir, clean);
     }
 
-    private void deleteRecursive(File f) {
+    private boolean deleteTarget(File f) {
+        if (f == null || !f.exists()) return true;
         if (f.isDirectory()) {
             File[] ch = f.listFiles();
-            if (ch != null) for (File c : ch) deleteRecursive(c);
+            if (ch != null) {
+                for (File c : ch) {
+                    deleteTarget(c);
+                }
+            }
         }
-        f.delete();
+        boolean ok = f.delete();
+        if (!ok && f.exists()) {
+            try {
+                Process p = Runtime.getRuntime().exec(new String[]{"rm", "-rf", f.getAbsolutePath()});
+                p.waitFor();
+            } catch (Exception ignored) {}
+            if (!f.exists()) return true;
+
+            if (context != null) {
+                try {
+                    Uri uri = MediaStore.Files.getContentUri("external");
+                    context.getContentResolver().delete(uri, MediaStore.MediaColumns.DATA + "=?", new String[]{f.getAbsolutePath()});
+                } catch (Exception ignored) {}
+            }
+            ok = !f.exists();
+        }
+        return ok;
     }
 
     private String getRelativePath(File child, File root) {

@@ -259,19 +259,25 @@ final class ShareWebTemplate {
                 "\n" +
                 "      xhr.upload.onprogress = function(e) {\n" +
                 "        if (e.lengthComputable) {\n" +
-                "          const pct = Math.round((e.loaded / e.total) * 100);\n" +
+                "          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));\n" +
                 "          pPercent.textContent = pct + '%';\n" +
                 "          pBar.style.width = pct + '%';\n" +
                 "          const loadedMb = (e.loaded / 1048576).toFixed(1);\n" +
                 "          const totalMb = (e.total / 1048576).toFixed(1);\n" +
                 "          const elapsed = (Date.now() - startTime) / 1000;\n" +
                 "          const speed = elapsed > 0 ? ((e.loaded / 1048576) / elapsed).toFixed(1) : '0';\n" +
-                "          pStats.textContent = loadedMb + ' MB / ' + totalMb + ' MB (' + speed + ' MB/s)';\n" +
+                "          if (pct >= 99) {\n" +
+                "            pStats.textContent = loadedMb + ' MB / ' + totalMb + ' MB • Writing to TV storage...';\n" +
+                "          } else {\n" +
+                "            pStats.textContent = loadedMb + ' MB / ' + totalMb + ' MB (' + speed + ' MB/s)';\n" +
+                "          }\n" +
                 "        }\n" +
                 "      };\n" +
                 "\n" +
                 "      xhr.onload = function() {\n" +
-                "        if (xhr.status >= 200 && xhr.status < 400) {\n" +
+                "        let data = {};\n" +
+                "        try { data = JSON.parse(xhr.responseText); } catch(e) {}\n" +
+                "        if (xhr.status >= 200 && xhr.status < 400 && data.ok !== false) {\n" +
                 "          pBar.style.width = '100%';\n" +
                 "          pPercent.textContent = '100%';\n" +
                 "          const isApk = file.name.toLowerCase().endsWith('.apk');\n" +
@@ -282,7 +288,7 @@ final class ShareWebTemplate {
                 "            setTimeout(() => location.reload(), 1000);\n" +
                 "          }\n" +
                 "        } else {\n" +
-                "          pStats.textContent = 'Upload failed: ' + xhr.status;\n" +
+                "          pStats.textContent = 'Upload failed: ' + (data.error || ('HTTP ' + xhr.status));\n" +
                 "          pBar.style.background = '#ef4444';\n" +
                 "        }\n" +
                 "      };\n" +
@@ -291,6 +297,12 @@ final class ShareWebTemplate {
                 "        pStats.textContent = 'Network error during upload.';\n" +
                 "        pBar.style.background = '#ef4444';\n" +
                 "      };\n" +
+                "\n" +
+                "      xhr.ontimeout = function() {\n" +
+                "        pStats.textContent = 'Upload timed out. TV may be busy.';\n" +
+                "        pBar.style.background = '#ef4444';\n" +
+                "      };\n" +
+                "      xhr.timeout = 180000;\n" +
                 "\n" +
                 "      xhr.open('POST', '/upload');\n" +
                 "      xhr.setRequestHeader('Accept', 'application/json');\n" +
@@ -312,24 +324,25 @@ final class ShareWebTemplate {
                 "          },\n" +
                 "          body: 'path=' + encodeURIComponent(relPath)\n" +
                 "        });\n" +
-                "        if (res.ok) {\n" +
+                "        const data = await res.json().catch(() => ({}));\n" +
+                "        if (res.ok && data.ok) {\n" +
                 "          item.style.transition = 'all 0.22s ease';\n" +
                 "          item.style.opacity = '0';\n" +
                 "          item.style.transform = 'translateX(20px)';\n" +
                 "          setTimeout(() => {\n" +
                 "            item.remove();\n" +
                 "            const list = document.querySelector('.file-list');\n" +
-                "            if (list && list.children.length === 0) {\n" +
+                "            if (list && list.querySelectorAll('.file-item').length === 0) {\n" +
                 "              list.innerHTML = \"<div class='empty-state'>This folder is empty</div>\";\n" +
                 "            }\n" +
                 "          }, 220);\n" +
                 "        } else {\n" +
-                "          alert('Failed to delete');\n" +
+                "          alert('Could not delete ' + name + (data.error ? ': ' + data.error : ''));\n" +
                 "          btn.disabled = false;\n" +
                 "          btn.style.opacity = '1';\n" +
                 "        }\n" +
                 "      } catch (e) {\n" +
-                "        alert('Network error');\n" +
+                "        alert('Network error while deleting ' + name);\n" +
                 "        btn.disabled = false;\n" +
                 "        btn.style.opacity = '1';\n" +
                 "      }\n" +

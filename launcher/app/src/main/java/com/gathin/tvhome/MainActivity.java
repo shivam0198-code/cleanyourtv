@@ -4180,7 +4180,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final android.widget.ProgressBar progressBar = panel.findViewById(R.id.shareProgressBar);
 
         try {
-            shareServer = new ShareServer(8080, storageRoot);
+            shareServer = new ShareServer(this, 8080, storageRoot);
             shareServer.setUploadListener(new ShareServer.UploadListener() {
                 @Override
                 public void onUploadProgress(String filename, int percent, long bytesReceived, long totalBytes) {
@@ -4189,10 +4189,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                             progressBlock.setVisibility(View.VISIBLE);
                             if (percent >= 100) {
                                 progressStatus.setText("Received: " + filename + " (100%)");
-                            } else {
+                            } else if (percent > 0) {
                                 progressStatus.setText("Receiving: " + filename + " (" + percent + "%)");
+                            } else {
+                                progressStatus.setText("Receiving: " + filename + " (" + (bytesReceived / 1048576) + " MB)");
                             }
-                            if (progressBar != null) progressBar.setProgress(percent);
+                            if (progressBar != null) {
+                                if (percent > 0) {
+                                    progressBar.setIndeterminate(false);
+                                    progressBar.setProgress(percent);
+                                } else {
+                                    progressBar.setIndeterminate(true);
+                                }
+                            }
                         }
                     });
                 }
@@ -4200,7 +4209,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 @Override
                 public void onFileUploaded(File file) {
                     if (file != null && file.getName().toLowerCase(Locale.ROOT).endsWith(".apk")) {
-                        root.postDelayed(() -> triggerApkInstall(file), 250);
+                        root.postDelayed(() -> triggerApkInstall(file), 500);
                     }
                 }
             });

@@ -60,7 +60,19 @@ final class CctvManager {
                 .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
                 .build());
 
-        player.setVideoTextureView(surface);
+        if (surface.isAvailable()) {
+            player.setVideoTextureView(surface);
+        } else {
+            surface.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+                @Override
+                public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st, int w, int h) {
+                    if (player != null) player.setVideoTextureView(surface);
+                }
+                @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) {}
+                @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) { return true; }
+                @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) {}
+            });
+        }
         player.addListener(new Player.Listener() {
             @Override
             public void onRenderedFirstFrame() {
@@ -133,7 +145,7 @@ final class CctvManager {
     }
 
     private static String buildRtspUrl(String ip, String user, String pass, int channel, int subtype) {
-        return "rtsp://" + enc(user) + ":" + enc(pass) + "@" + ip + ":554/cam/realmonitor?channel=" + channel + "&subtype=" + subtype;
+        return "rtsp://" + user + ":" + pass + "@" + ip + ":554/cam/realmonitor?channel=" + channel + "&subtype=" + subtype;
     }
 
     private static String enc(String s) {

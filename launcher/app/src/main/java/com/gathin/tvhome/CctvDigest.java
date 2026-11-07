@@ -86,11 +86,16 @@ final class CctvDigest {
             conn.setRequestProperty("Authorization", authValue);
 
             conn.connect();
-            if (conn.getResponseCode() == 200) {
+            int respCode = conn.getResponseCode();
+            if (respCode == 200) {
                 byte[] data = readBytes(conn.getInputStream());
                 conn.disconnect();
-                return data;
+                if (data != null && data.length > 0) {
+                    Log.i(TAG, "Snapshot ch=" + uri + " success (" + data.length + " bytes)");
+                    return data;
+                }
             } else {
+                Log.w(TAG, "Auth request returned HTTP " + respCode);
                 conn.disconnect();
             }
         } catch (Exception e) {
@@ -100,9 +105,12 @@ final class CctvDigest {
     }
 
     private static String extractParam(String header, String param) {
-        Pattern p = Pattern.compile(param + "=\"?([^\",\\s]+)\"?");
+        Pattern p = Pattern.compile(param + "=\"([^\"]+)\"");
         Matcher m = p.matcher(header);
         if (m.find()) return m.group(1);
+        Pattern p2 = Pattern.compile(param + "=([^,\\s]+)");
+        Matcher m2 = p2.matcher(header);
+        if (m2.find()) return m2.group(1);
         return null;
     }
 

@@ -443,6 +443,7 @@ final class ShareServer {
             File f = resolvePath(targetPath);
             File parent = f.getParentFile();
             parentRel = parent != null ? getRelativePath(parent, rootDir) : "";
+            Log.i(TAG, "handleDelete: targetPath=" + targetPath + " -> resolved=" + f.getAbsolutePath() + " exists=" + f.exists());
             deleted = deleteTarget(f);
         }
         String accept = headers.getOrDefault("accept", "");
@@ -472,20 +473,36 @@ final class ShareServer {
 
     private File resolvePath(String subPath) {
         if (subPath == null || subPath.trim().isEmpty()) return rootDir;
-        String clean = subPath.replace("..", "").replace("//", "/").trim();
-        if (clean.startsWith("/storage/emulated/0/")) {
-            clean = clean.substring("/storage/emulated/0/".length());
-        } else if (clean.startsWith("/sdcard/")) {
-            clean = clean.substring("/sdcard/".length());
-        } else if (clean.startsWith("sdcard/")) {
-            clean = clean.substring("sdcard/".length());
+        String p = subPath.trim();
+        if (p.startsWith("/storage/emulated/0/")) {
+            p = p.substring("/storage/emulated/0/".length());
+        } else if (p.startsWith("/sdcard/")) {
+            p = p.substring("/sdcard/".length());
+        } else if (p.startsWith("sdcard/")) {
+            p = p.substring("sdcard/".length());
         }
-        if (clean.startsWith("/")) clean = clean.substring(1);
-        return new File(rootDir, clean);
+        while (p.startsWith("/")) p = p.substring(1);
+
+        File target = new File(rootDir, p);
+        try {
+            String targetCanonical = target.getCanonicalPath();
+            String rootCanonical = rootDir.getCanonicalPath();
+            if (!targetCanonical.equals(rootCanonical) && !targetCanonical.startsWith(rootCanonical + File.separator)) {
+                Log.w(TAG, "Path traversal attempt blocked: " + subPath);
+                return rootDir;
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Error resolving canonical path: " + subPath, e);
+            return rootDir;
+        }
+        return target;
     }
 
     private boolean deleteTarget(File f) {
-        if (f == null || !f.exists()) return true;
+        if (f == null || !f.exists()) {
+            Log.w(TAG, "deleteTarget: file does not exist: " + (f != null ? f.getAbsolutePath() : "null"));
+            return false;
+        }
         if (f.isDirectory()) {
             File[] ch = f.listFiles();
             if (ch != null) {
@@ -495,18 +512,24 @@ final class ShareServer {
             }
         }
         boolean ok = f.delete();
+        Log.i(TAG, "deleteTarget: File.delete() on " + f.getAbsolutePath() + " returned " + ok);
         if (!ok && f.exists()) {
             try {
                 Process p = Runtime.getRuntime().exec(new String[]{"rm", "-rf", f.getAbsolutePath()});
                 p.waitFor();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                Log.w(TAG, "deleteTarget: rm -rf failed", e);
+            }
             if (!f.exists()) return true;
 
             if (context != null) {
                 try {
                     Uri uri = MediaStore.Files.getContentUri("external");
-                    context.getContentResolver().delete(uri, MediaStore.MediaColumns.DATA + "=?", new String[]{f.getAbsolutePath()});
-                } catch (Exception ignored) {}
+                    int count = context.getContentResolver().delete(uri, MediaStore.MediaColumns.DATA + "=?", new String[]{f.getAbsolutePath()});
+                    Log.i(TAG, "deleteTarget: MediaStore delete count=" + count);
+                } catch (Exception e) {
+                    Log.w(TAG, "deleteTarget: MediaStore delete failed", e);
+                }
             }
             ok = !f.exists();
         }

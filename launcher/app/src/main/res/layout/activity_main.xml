@@ -321,6 +321,39 @@
                 android:focusable="false"
                 android:visibility="gone" />
 
+            <!-- Sleek minimal RAM meter below the clock (config: show_ram_meter) -->
+            <LinearLayout
+                android:id="@+id/ramMeterLayout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/stats"
+                android:layout_alignStart="@id/leftBlock"
+                android:layout_marginStart="4dp"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/ramBar"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="54dp"
+                    android:layout_height="3dp"
+                    android:progressDrawable="@drawable/ram_bar_progress"
+                    android:max="100" />
+
+                <TextView
+                    android:id="@+id/ramText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textColor="#A6FFFFFF"
+                    android:textSize="11sp"
+                    android:fontFamily="@string/font_medium"
+                    android:letterSpacing="0.08"
+                    android:singleLine="true" />
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/topButtons"
                 android:layout_width="wrap_content"
@@ -408,8 +441,306 @@
                 android:overScrollMode="never"
                 android:scrollbars="none"
                 android:descendantFocusability="afterDescendants" />
+
+            <!-- CCTV Container: 2x2 Grid + Peeking 5th Camera -->
+            <FrameLayout
+                android:id="@+id/cctvContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"
+                android:alpha="0">
+
+                <HorizontalScrollView
+                    android:id="@+id/cctvScrollView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scrollbars="none"
+                    android:overScrollMode="never"
+                    android:clipToPadding="false"
+                    android:clipChildren="false">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:clipToPadding="false"
+                        android:clipChildren="false">
+
+                        <!-- 2x2 Grid (Cameras 1-4) -->
+                        <LinearLayout
+                            android:id="@+id/cctv2x2Grid"
+                            android:layout_width="700dp"
+                            android:layout_height="match_parent"
+                            android:orientation="vertical">
+
+                            <!-- Row 1: Cam 1 & 2 -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:orientation="horizontal">
+
+                                <FrameLayout
+                                    android:id="@+id/cctv_card_1"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:layout_margin="6dp"
+                                    android:background="@drawable/cctv_card_glass"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:nextFocusRight="@+id/cctv_card_2"
+                                    android:nextFocusDown="@+id/cctv_card_3">
+
+                                    <ImageView
+                                        android:id="@+id/cctv_img_1"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="match_parent"
+                                        android:scaleType="centerCrop" />
+
+                                    <TextView
+                                        android:id="@+id/cctv_label_1"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="top|left"
+                                        android:layout_margin="10dp"
+                                        android:background="@drawable/cctv_pill_glass"
+                                        android:paddingLeft="10dp"
+                                        android:paddingTop="4dp"
+                                        android:paddingRight="10dp"
+                                        android:paddingBottom="4dp"
+                                        android:text="Camera 1"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="11sp"
+                                        android:textStyle="bold" />
+                                </FrameLayout>
+
+                                <FrameLayout
+                                    android:id="@+id/cctv_card_2"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:layout_margin="6dp"
+                                    android:background="@drawable/cctv_card_glass"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:nextFocusLeft="@+id/cctv_card_1"
+                                    android:nextFocusRight="@+id/cctv_card_5"
+                                    android:nextFocusDown="@+id/cctv_card_4">
+
+                                    <ImageView
+                                        android:id="@+id/cctv_img_2"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="match_parent"
+                                        android:scaleType="centerCrop" />
+
+                                    <TextView
+                                        android:id="@+id/cctv_label_2"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="top|left"
+                                        android:layout_margin="10dp"
+                                        android:background="@drawable/cctv_pill_glass"
+                                        android:paddingLeft="10dp"
+                                        android:paddingTop="4dp"
+                                        android:paddingRight="10dp"
+                                        android:paddingBottom="4dp"
+                                        android:text="Camera 2"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="11sp"
+                                        android:textStyle="bold" />
+                                </FrameLayout>
+                            </LinearLayout>
+
+                            <!-- Row 2: Cam 3 & 4 -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:orientation="horizontal">
+
+                                <FrameLayout
+                                    android:id="@+id/cctv_card_3"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:layout_margin="6dp"
+                                    android:background="@drawable/cctv_card_glass"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:nextFocusUp="@+id/cctv_card_1"
+                                    android:nextFocusRight="@+id/cctv_card_4">
+
+                                    <ImageView
+                                        android:id="@+id/cctv_img_3"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="match_parent"
+                                        android:scaleType="centerCrop" />
+
+                                    <TextView
+                                        android:id="@+id/cctv_label_3"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="top|left"
+                                        android:layout_margin="10dp"
+                                        android:background="@drawable/cctv_pill_glass"
+                                        android:paddingLeft="10dp"
+                                        android:paddingTop="4dp"
+                                        android:paddingRight="10dp"
+                                        android:paddingBottom="4dp"
+                                        android:text="Camera 3"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="11sp"
+                                        android:textStyle="bold" />
+                                </FrameLayout>
+
+                                <FrameLayout
+                                    android:id="@+id/cctv_card_4"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:layout_margin="6dp"
+                                    android:background="@drawable/cctv_card_glass"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:nextFocusUp="@+id/cctv_card_2"
+                                    android:nextFocusLeft="@+id/cctv_card_3"
+                                    android:nextFocusRight="@+id/cctv_card_5">
+
+                                    <ImageView
+                                        android:id="@+id/cctv_img_4"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="match_parent"
+                                        android:scaleType="centerCrop" />
+
+                                    <TextView
+                                        android:id="@+id/cctv_label_4"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="top|left"
+                                        android:layout_margin="10dp"
+                                        android:background="@drawable/cctv_pill_glass"
+                                        android:paddingLeft="10dp"
+                                        android:paddingTop="4dp"
+                                        android:paddingRight="10dp"
+                                        android:paddingBottom="4dp"
+                                        android:text="Camera 4"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="11sp"
+                                        android:textStyle="bold" />
+                                </FrameLayout>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Peeking Column: Camera 5 -->
+                        <FrameLayout
+                            android:id="@+id/cctv_card_5"
+                            android:layout_width="340dp"
+                            android:layout_height="match_parent"
+                            android:layout_margin="6dp"
+                            android:background="@drawable/cctv_card_glass"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/cctv_card_2">
+
+                            <ImageView
+                                android:id="@+id/cctv_img_5"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop" />
+
+                            <TextView
+                                android:id="@+id/cctv_label_5"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="top|left"
+                                android:layout_margin="10dp"
+                                android:background="@drawable/cctv_pill_glass"
+                                android:paddingLeft="10dp"
+                                android:paddingTop="4dp"
+                                android:paddingRight="10dp"
+                                android:paddingBottom="4dp"
+                                android:text="Camera 5"
+                                android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </FrameLayout>
+                    </LinearLayout>
+                </HorizontalScrollView>
+
+                <!-- Full HD Expansion Overlay -->
+                <FrameLayout
+                    android:id="@+id/cctvExpandedOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#D9000000"
+                    android:visibility="gone">
+
+                    <TextureView
+                        android:id="@+id/cctvHdVideo"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_margin="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|left"
+                        android:layout_margin="24dp"
+                        android:background="@drawable/cctv_pill_glass"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingLeft="14dp"
+                        android:paddingTop="6dp"
+                        android:paddingRight="14dp"
+                        android:paddingBottom="6dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="● LIVE HD"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/cctvExpandedTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginLeft="10dp"
+                            android:text="Camera 1"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom|center_horizontal"
+                        android:layout_marginBottom="24dp"
+                        android:background="@drawable/cctv_pill_glass"
+                        android:paddingLeft="14dp"
+                        android:paddingTop="6dp"
+                        android:paddingRight="14dp"
+                        android:paddingBottom="6dp"
+                        android:text="[Back] Return to Grid"
+                        android:textColor="#A6FFFFFF"
+                        android:textSize="11sp" />
+                </FrameLayout>
+            </FrameLayout>
         </FrameLayout>
     </LinearLayout>
+
+    <!-- Abstract Right-Edge Glass Gutter Tab: indicates content to the right (no icons) -->
+    <View
+        android:id="@+id/gutterTab"
+        android:layout_width="6dp"
+        android:layout_height="130dp"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="6dp"
+        android:background="@drawable/glass_gutter_tab"
+        android:alpha="0.22"
+        android:importantForAccessibility="no" />
 
     <!-- The single floating glass highlight that springs between tiles. -->
     <com.gathin.tvhome.GlassView

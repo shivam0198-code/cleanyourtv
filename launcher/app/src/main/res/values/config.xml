@@ -461,6 +461,16 @@
          "show_stats": true. Nothing is read, and the clock does not move, while this is false. -->
     <bool name="show_stats">false</bool>
 
+    <!-- Minimalist RAM meter below the clock. Overridable via config.json "show_ram_meter": true/false -->
+    <bool name="show_ram_meter">true</bool>
+
+    <!-- CCTV Camera View to the right of the home screen. Overridable via config.json "cctv_enabled": true/false -->
+    <bool name="cctv_enabled">true</bool>
+    <string name="cctv_ip" translatable="false">192.168.1.2</string>
+    <string name="cctv_user" translatable="false">admin</string>
+    <string name="cctv_password" translatable="false">admin@123</string>
+    <integer name="cctv_channels">5</integer>
+
     <!-- Each team's next game in the F1 panel's place under the clock, rotating with the theme's F1 weekend: the package
          of an add-on that publishes them (the Game Day add-on: io.github.justinnewman.gameday; contract in docs/modules.md).
          Empty = off: nothing is read or watched. The launcher only reads what the add-on publishes and never goes

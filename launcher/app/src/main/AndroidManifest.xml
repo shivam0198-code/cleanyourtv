@@ -82,6 +82,7 @@
         android:theme="@style/Theme.TvHome"
         android:allowBackup="false"
         android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true"
         android:localeConfig="@xml/locales_config">
 
         <activity

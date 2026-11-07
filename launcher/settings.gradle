@@ -14,5 +14,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "tvhome"
 include ':app'
-include ':home-cctv'
-project(':home-cctv').projectDir = file('../addons/home-cctv/app')

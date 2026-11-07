@@ -63,9 +63,12 @@ import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.animation.AnimationUtils;
 import android.view.animation.LayoutAnimationController;
+import android.view.TextureView;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
@@ -371,6 +374,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean libraryFocusPending;
     private RecyclerView.OnScrollListener pendingFocusScroll;
 
+    // RAM meter
+    private boolean showRamMeter;
+    private View ramMeterLayout;
+    private ProgressBar ramBar;
+    private TextView ramText;
+
+    // CCTV & Gutter Tab
+    private boolean cctvEnabled;
+    private String cctvIp;
+    private String cctvUser;
+    private String cctvPassword;
+    private int cctvChannels;
+    private boolean cctvShown = false;
+    private View gutterTab;
+    private FrameLayout cctvContainer;
+    private HorizontalScrollView cctvScrollView;
+    private final FrameLayout[] cctvCards = new FrameLayout[5];
+    private final ImageView[] cctvImgs = new ImageView[5];
+    private FrameLayout cctvExpandedOverlay;
+    private TextureView cctvHdVideo;
+    private TextView cctvExpandedTitle;
+    private int cctvExpandedChannel = -1;
+    private CctvManager cctvManager;
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -525,6 +552,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         sourcePanelAction = cfg.sourcePanelAction;
         sourcePanelExtra = cfg.sourcePanelExtra;
         coocaaSources = cfg.coocaaSources;
+        showRamMeter = cfg.showRamMeter;
+        cctvEnabled = cfg.cctvEnabled;
+        cctvIp = cfg.cctvIp;
+        cctvUser = cfg.cctvUser;
+        cctvPassword = cfg.cctvPassword;
+        cctvChannels = cfg.cctvChannels;
 
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
@@ -634,6 +667,29 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         moduleCards = cfg.moduleCards;
         hiddenApps = new HashSet<>(cfg.hiddenApps);
         libraryExcludedApps = new HashSet<>(cfg.libraryExcludedApps);
+
+        ramMeterLayout = findViewById(R.id.ramMeterLayout);
+        ramBar = findViewById(R.id.ramBar);
+        ramText = findViewById(R.id.ramText);
+        if (showRamMeter) updateRamMeter();
+        else if (ramMeterLayout != null) ramMeterLayout.setVisibility(View.GONE);
+
+        gutterTab = findViewById(R.id.gutterTab);
+        if (gutterTab != null) {
+            gutterTab.setVisibility(cctvEnabled ? View.VISIBLE : View.GONE);
+            gutterTab.setOnClickListener(v -> showCctvView());
+        }
+
+        cctvContainer = findViewById(R.id.cctvContainer);
+        cctvScrollView = findViewById(R.id.cctvScrollView);
+        cctvExpandedOverlay = findViewById(R.id.cctvExpandedOverlay);
+        cctvHdVideo = findViewById(R.id.cctvHdVideo);
+        cctvExpandedTitle = findViewById(R.id.cctvExpandedTitle);
+
+        if (cctvEnabled) {
+            cctvManager = new CctvManager(this);
+            initCctvViews();
+        }
 
         grid = findViewById(R.id.grid);
         rtlAppGrid = getResources().getBoolean(R.bool.rtl_app_grid);
@@ -944,7 +1000,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int leftButton = rtlMenuBar ? R.id.btnSettings : firstButton;
             int rightButton = rtlMenuBar ? firstButton : R.id.btnSettings;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return v.getId() == leftButton;
-            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton) {
+                if (cctvEnabled && !cctvShown) {
+                    showCctvView();
+                    return true;
+                }
+                return true;
+            }
+            return false;
         };
         if (btnShare != null) btnShare.setOnKeyListener(pillKeys);
         btnInputs.setOnKeyListener(pillKeys);
@@ -968,7 +1031,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
             boolean onTile = newF != null && newF.getId() == R.id.card;
-            if (!onTile) hideGlass();
+            if (!onTile) {
+                hideGlass();
+                updateGutterTabGlow(false);
+            }
         });
 
         packageFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -1091,6 +1157,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (openLibraryIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
+        if (cctvShown) hideCctvView();
         if (gameDay != null && !stopped) gameDay.read();
         grid.scrollToPosition(0);
         lastFocused = 0;
@@ -1169,6 +1236,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             pillsShown = true;
         }
         if (showStats) startStats();
+        if (showRamMeter) {
+            updateRamMeter();
+            handler.postDelayed(ramTick, 5000);
+        } else if (ramMeterLayout != null) {
+            ramMeterLayout.setVisibility(View.GONE);
+        }
+        if (cctvShown && cctvManager != null) {
+            cctvManager.startSnapshotLoop(cctvIp, cctvUser, cctvPassword, cctvChannels, cctvImgs);
+        }
         if (gameDay != null) gameDay.start();
         sky.update();
         wallpaperPlayer.start();
@@ -1354,6 +1430,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         handler.removeCallbacks(openWhenOnline);
         startPending = null;   // leaving Home before the network came back: the boot's app stays closed
         stopStats();
+        handler.removeCallbacks(ramTick);
+        if (cctvManager != null) {
+            cctvManager.releaseAll();
+        }
         if (gameDay != null) gameDay.stop();
         handler.removeCallbacks(turnTick);
         if (lamp != null) lamp.stop();
@@ -1412,6 +1492,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (cctvManager != null) {
+            cctvManager.releaseAll();
+            cctvManager = null;
+        }
         if (shareServer != null) {
             shareServer.stop();
             shareServer = null;
@@ -1480,6 +1564,41 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
                 return true;
             }
+        }
+        if (cctvShown) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                int code = event.getKeyCode();
+                if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
+                    if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
+                        collapseCctvHd();
+                    } else {
+                        hideCctvView();
+                    }
+                    return true;
+                }
+                if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
+                    return super.dispatchKeyEvent(event);
+                }
+                if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
+                    View cur = getCurrentFocus();
+                    if (cur == cctvCards[0] || cur == cctvCards[2]) {
+                        hideCctvView();
+                        return true;
+                    } else if (cur == cctvCards[4]) {
+                        if (cctvCards[1] != null) cctvCards[1].requestFocus();
+                        return true;
+                    }
+                } else if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    View cur = getCurrentFocus();
+                    if (cur == cctvCards[1] || cur == cctvCards[3]) {
+                        if (cctvCards[4] != null) cctvCards[4].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[4]) {
+                        return true;
+                    }
+                }
+            }
+            return super.dispatchKeyEvent(event);
         }
         if (!reordering) return super.dispatchKeyEvent(event);
         if (dockEditing) return dispatchDockEdit(event);
@@ -1839,6 +1958,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     public void onTileFocused(int position, View card) {
         lastFocused = position;
         lastFocusedKey = adapter.keyAt(position);
+        boolean isRightCol = (position % COLUMNS) == (COLUMNS - 1)
+                || (dockRow && (singleRow || position < COLUMNS) && position == Math.min(adapter.appCount(), adapter.dockFilled()) - 1);
+        updateGutterTabGlow(isRightCol);
         // Focus restored before the first layout (cold start): the tile has no size yet, and the glass
         // would be sized to 2*pad. Run again once the tile is laid out.
         if (card.getWidth() == 0) {
@@ -2445,6 +2567,173 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return MemInfo.usedOfTotalMb(lines);
     }
 
+    private final Runnable ramTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!resumed || !showRamMeter) return;
+            updateRamMeter();
+            handler.postDelayed(this, 5000);
+        }
+    };
+
+    private void updateRamMeter() {
+        if (!showRamMeter || ramMeterLayout == null) return;
+        long[] mem = memUsedOfTotalMb();
+        if (mem != null && mem.length >= 2 && mem[1] > 0) {
+            float usedGb = mem[0] / 1024f;
+            float totalGb = mem[1] / 1024f;
+            int progress = (int) Math.round((double) mem[0] * 100.0 / mem[1]);
+            if (ramBar != null) ramBar.setProgress(progress);
+            if (ramText != null) {
+                ramText.setText(String.format(Locale.US, "RAM  %.1f / %.1f GB", usedGb, totalGb));
+            }
+            ramMeterLayout.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void updateGutterTabGlow(boolean glow) {
+        if (!cctvEnabled || gutterTab == null || cctvShown) return;
+        gutterTab.animate()
+                .alpha(glow ? 0.90f : 0.22f)
+                .scaleX(glow ? 1.4f : 1.0f)
+                .setDuration(200)
+                .start();
+    }
+
+    private void initCctvViews() {
+        int[] cardIds = {R.id.cctv_card_1, R.id.cctv_card_2, R.id.cctv_card_3, R.id.cctv_card_4, R.id.cctv_card_5};
+        int[] imgIds = {R.id.cctv_img_1, R.id.cctv_img_2, R.id.cctv_img_3, R.id.cctv_img_4, R.id.cctv_img_5};
+
+        for (int i = 0; i < 5; i++) {
+            final int channel = i + 1;
+            cctvCards[i] = findViewById(cardIds[i]);
+            cctvImgs[i] = findViewById(imgIds[i]);
+
+            if (cctvCards[i] != null) {
+                final int idx = i;
+                cctvCards[i].setOnClickListener(v -> expandCctvHd(channel));
+                cctvCards[i].setOnFocusChangeListener((v, hasFocus) -> {
+                    v.animate()
+                            .scaleX(hasFocus ? 1.03f : 1.0f)
+                            .scaleY(hasFocus ? 1.03f : 1.0f)
+                            .setDuration(150)
+                            .start();
+                    if (hasFocus) {
+                        if (idx == 4 && cctvScrollView != null) {
+                            cctvScrollView.smoothScrollTo(v.getLeft(), 0);
+                        } else if (idx < 4 && cctvScrollView != null) {
+                            cctvScrollView.smoothScrollTo(0, 0);
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    private void showCctvView() {
+        if (cctvShown || !cctvEnabled) return;
+        cctvShown = true;
+        hideGlass();
+        hideHero();
+
+        if (gutterTab != null) gutterTab.animate().alpha(0f).setDuration(150).start();
+
+        grid.animate()
+                .alpha(0f)
+                .translationX(-80f * density)
+                .setDuration(220)
+                .withEndAction(() -> grid.setVisibility(View.GONE))
+                .start();
+
+        if (cctvContainer != null) {
+            cctvContainer.setVisibility(View.VISIBLE);
+            cctvContainer.setTranslationX(80f * density);
+            cctvContainer.setAlpha(0f);
+            cctvContainer.animate()
+                    .alpha(1f)
+                    .translationX(0f)
+                    .setDuration(220)
+                    .withEndAction(() -> {
+                        if (cctvCards[0] != null) cctvCards[0].requestFocus();
+                    })
+                    .start();
+        }
+
+        if (cctvScrollView != null) cctvScrollView.scrollTo(0, 0);
+
+        if (cctvManager != null) {
+            cctvManager.startSnapshotLoop(cctvIp, cctvUser, cctvPassword, cctvChannels, cctvImgs);
+        }
+    }
+
+    private void hideCctvView() {
+        if (!cctvShown) return;
+        cctvShown = false;
+
+        if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
+            cctvExpandedOverlay.setVisibility(View.GONE);
+        }
+        if (cctvManager != null) {
+            cctvManager.releaseAll();
+        }
+
+        if (cctvContainer != null) {
+            cctvContainer.animate()
+                    .alpha(0f)
+                    .translationX(80f * density)
+                    .setDuration(200)
+                    .withEndAction(() -> cctvContainer.setVisibility(View.GONE))
+                    .start();
+        }
+
+        grid.setVisibility(View.VISIBLE);
+        grid.setAlpha(0f);
+        grid.setTranslationX(-80f * density);
+        grid.animate()
+                .alpha(1f)
+                .translationX(0f)
+                .setDuration(200)
+                .withEndAction(() -> focusTile(lastFocused))
+                .start();
+
+        if (gutterTab != null) {
+            gutterTab.setVisibility(View.VISIBLE);
+            gutterTab.animate().alpha(0.22f).scaleX(1.0f).setDuration(200).start();
+        }
+    }
+
+    private void expandCctvHd(int channel) {
+        if (cctvExpandedOverlay == null || cctvHdVideo == null || cctvManager == null) return;
+        cctvExpandedChannel = channel;
+        if (cctvExpandedTitle != null) {
+            cctvExpandedTitle.setText("Camera " + channel);
+        }
+        cctvExpandedOverlay.setVisibility(View.VISIBLE);
+        cctvExpandedOverlay.setAlpha(0f);
+        cctvExpandedOverlay.animate().alpha(1f).setDuration(200).start();
+
+        cctvManager.startHdStream(cctvIp, cctvUser, cctvPassword, channel, cctvHdVideo, null);
+    }
+
+    private void collapseCctvHd() {
+        if (cctvExpandedOverlay == null || cctvExpandedOverlay.getVisibility() != View.VISIBLE) return;
+        if (cctvManager != null) {
+            cctvManager.releasePlayer();
+        }
+        cctvExpandedOverlay.animate()
+                .alpha(0f)
+                .setDuration(180)
+                .withEndAction(() -> {
+                    cctvExpandedOverlay.setVisibility(View.GONE);
+                    int idx = cctvExpandedChannel - 1;
+                    if (idx >= 0 && idx < cctvCards.length && cctvCards[idx] != null) {
+                        cctvCards[idx].requestFocus();
+                    }
+                    cctvExpandedChannel = -1;
+                })
+                .start();
+    }
+
     private static String readFirstLine(String path) {
         try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(path))) {
             return r.readLine();
@@ -2475,6 +2764,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int last = adapter.focusablePosition(count - 1);
             if (forward && position >= last) {
                 if (adapter.isLibraryAt(count)) focusLibrary();
+                else if (cctvEnabled && !cctvShown) showCctvView();
                 return true;
             }
             return !forward && position == 0;
@@ -2489,6 +2779,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
             // In the dock, the last app is the row's end: the empty slots after it take no focus.
             int rowCount = position < COLUMNS ? Math.min(count, adapter.dockFilled()) : count;
+            boolean atRightEdge = GridNavigation.atHorizontalEdge(position, rowCount, COLUMNS, rtlAppGrid, false);
+            if (forward && atRightEdge && cctvEnabled && !cctvShown) {
+                showCctvView();
+                return true;
+            }
             return GridNavigation.atHorizontalEdge(position, rowCount, COLUMNS,
                     rtlAppGrid, keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
         }

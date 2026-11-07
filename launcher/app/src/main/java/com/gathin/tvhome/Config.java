@@ -143,6 +143,12 @@ final class Config {
     /** Inputs dropdown popup alignment ("end" or "start") and X offset in dp. */
     final String inputsMenuAlign;
     final int inputsMenuOffsetX;
+    final boolean showRamMeter;
+    final boolean cctvEnabled;
+    final String cctvIp;
+    final String cctvUser;
+    final String cctvPassword;
+    final int cctvChannels;
     /** With vpn_pill, the VPN pill as a round lock button (config.xml / theme icon_only_vpn). */
     final boolean iconOnlyVpn;
     /** Back on the Home screen opens the clock screensaver instead of doing nothing (config.xml / theme back_opens_clock). */
@@ -305,12 +311,19 @@ final class Config {
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean inputsCecStateOnly,
                    int openOnStartNetworkWait, boolean openOnStartOnWake, boolean iconOnlyVpn, String clockFormat, boolean backOpensClock, boolean glowSnap,
                    String castApp, String castAppLabel,
-                   boolean iconOnlyShare, boolean iconOnlyWifi, boolean iconOnlySettings, String inputsMenuAlign, int inputsMenuOffsetX) {
+                   boolean iconOnlyShare, boolean iconOnlyWifi, boolean iconOnlySettings, String inputsMenuAlign, int inputsMenuOffsetX,
+                   boolean showRamMeter, boolean cctvEnabled, String cctvIp, String cctvUser, String cctvPassword, int cctvChannels) {
         this.iconOnlyShare = iconOnlyShare;
         this.iconOnlyWifi = iconOnlyWifi;
         this.iconOnlySettings = iconOnlySettings;
         this.inputsMenuAlign = inputsMenuAlign;
         this.inputsMenuOffsetX = inputsMenuOffsetX;
+        this.showRamMeter = showRamMeter;
+        this.cctvEnabled = cctvEnabled;
+        this.cctvIp = cctvIp;
+        this.cctvUser = cctvUser;
+        this.cctvPassword = cctvPassword;
+        this.cctvChannels = cctvChannels;
         this.castApp = castApp;
         this.castAppLabel = castAppLabel;
         this.handleViewInputs = handleViewInputs;
@@ -499,6 +512,12 @@ final class Config {
         boolean iconOnlySettings = true;
         String inputsMenuAlign = "end";
         int inputsMenuOffsetX = 0;
+        boolean showRamMeter = res.getBoolean(R.bool.show_ram_meter);
+        boolean cctvEnabled = res.getBoolean(R.bool.cctv_enabled);
+        String cctvIp = res.getString(R.string.cctv_ip);
+        String cctvUser = res.getString(R.string.cctv_user);
+        String cctvPassword = res.getString(R.string.cctv_password);
+        int cctvChannels = res.getInteger(R.integer.cctv_channels);
         boolean iconOnlyVpn = res.getBoolean(R.bool.icon_only_vpn);
         boolean backOpensClock = res.getBoolean(R.bool.back_opens_clock);
         boolean glowSnap = res.getBoolean(R.bool.glow_snap);
@@ -620,6 +639,12 @@ final class Config {
             iconOnlySettings = bool(json, "icon_only_settings", iconOnlyButtons);
             inputsMenuAlign = string(json, "inputs_menu_align", inputsMenuAlign);
             inputsMenuOffsetX = integer(json, "inputs_menu_offset_x", inputsMenuOffsetX, -300, 300);
+            showRamMeter = bool(json, "show_ram_meter", showRamMeter);
+            cctvEnabled = bool(json, "cctv_enabled", cctvEnabled);
+            cctvIp = string(json, "cctv_ip", cctvIp);
+            cctvUser = string(json, "cctv_user", cctvUser);
+            cctvPassword = string(json, "cctv_password", cctvPassword);
+            cctvChannels = integer(json, "cctv_channels", cctvChannels, 1, 16);
             iconOnlyVpn = bool(json, "icon_only_vpn", iconOnlyVpn);
             backOpensClock = bool(json, "back_opens_clock", backOpensClock);
             glowSnap = bool(json, "glow_snap", glowSnap);
@@ -752,7 +777,8 @@ final class Config {
                 dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, inputsCecStateOnly,
                 Math.max(0, Math.min(600, openOnStartNetworkWait)), openOnStartOnWake, iconOnlyVpn, clockFormat, backOpensClock, glowSnap,
                 castApp, castAppLabel,
-                iconOnlyShare, iconOnlyWifi, iconOnlySettings, inputsMenuAlign, inputsMenuOffsetX);
+                iconOnlyShare, iconOnlyWifi, iconOnlySettings, inputsMenuAlign, inputsMenuOffsetX,
+                showRamMeter, cctvEnabled, cctvIp, cctvUser, cctvPassword, cctvChannels);
     }
 
     /**

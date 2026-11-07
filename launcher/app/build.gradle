@@ -51,7 +51,7 @@ dependencies {
 
 tasks.register('buildAddons') {
     doLast {
-        def addons = ['capacity-stats', 'headphones', 'bluetooth-connect', 'bluetooth-toggle']
+        def addons = ['file-server', 'capacity-stats', 'headphones', 'bluetooth-connect', 'bluetooth-toggle']
         addons.each { name ->
             println "=========================================="
             println ">>> Building addon: ${name} <<<"

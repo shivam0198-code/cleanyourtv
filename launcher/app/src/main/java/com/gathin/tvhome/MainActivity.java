@@ -2719,6 +2719,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cctvExpandedOverlay == null || cctvExpandedOverlay.getVisibility() != View.VISIBLE) return;
         if (cctvManager != null) {
             cctvManager.releasePlayer();
+            cctvManager.startSnapshotLoop(cctvIp, cctvUser, cctvPassword, cctvChannels, cctvImgs);
         }
         cctvExpandedOverlay.animate()
                 .alpha(0f)

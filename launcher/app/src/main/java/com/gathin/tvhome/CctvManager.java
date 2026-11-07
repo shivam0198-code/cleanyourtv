@@ -43,30 +43,27 @@ final class CctvManager {
     }
 
     void startHdStream(String ip, String user, String pass, int channel, TextureView surface, Listener listener) {
+        stopSnapshotLoop();
         releasePlayer();
 
         String url = buildRtspUrl(ip, user, pass, channel, 0); // subtype 0 = HD
         Log.i(TAG, "Starting HD stream ch=" + channel + " -> " + url);
 
-        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(800, 2500, 400, 400)
-                .build();
-
-        player = new ExoPlayer.Builder(context)
-                .setLoadControl(loadControl)
-                .build();
+        player = new ExoPlayer.Builder(context).build();
 
         player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
                 .build());
 
-        if (surface.isAvailable()) {
-            player.setVideoTextureView(surface);
+        if (surface.isAvailable() && surface.getSurfaceTexture() != null) {
+            player.setVideoSurface(new android.view.Surface(surface.getSurfaceTexture()));
         } else {
             surface.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
                 @Override
                 public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st, int w, int h) {
-                    if (player != null) player.setVideoTextureView(surface);
+                    if (player != null) {
+                        player.setVideoSurface(new android.view.Surface(st));
+                    }
                 }
                 @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) {}
                 @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) { return true; }
@@ -76,12 +73,18 @@ final class CctvManager {
         player.addListener(new Player.Listener() {
             @Override
             public void onRenderedFirstFrame() {
+                Log.i(TAG, "ExoPlayer rendered first frame!");
                 if (listener != null) listener.onFirstFrame();
             }
 
             @Override
+            public void onPlaybackStateChanged(int state) {
+                Log.i(TAG, "ExoPlayer playbackState=" + state);
+            }
+
+            @Override
             public void onPlayerError(androidx.media3.common.PlaybackException error) {
-                Log.w(TAG, "ExoPlayer error: " + error.getMessage());
+                Log.w(TAG, "ExoPlayer error: " + error.getMessage(), error);
                 if (listener != null) listener.onError(error.getMessage());
             }
         });
@@ -89,6 +92,7 @@ final class CctvManager {
         MediaItem item = MediaItem.fromUri(url);
         RtspMediaSource source = new RtspMediaSource.Factory()
                 .setForceUseRtpTcp(true)
+                .setDebugLoggingEnabled(true)
                 .createMediaSource(item);
 
         player.setMediaSource(source);

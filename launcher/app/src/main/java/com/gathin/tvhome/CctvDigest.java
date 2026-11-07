@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 
 final class CctvDigest {
     private static final String TAG = "CctvDigest";
+    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
 
     static Bitmap fetchSnapshot(String ip, String user, String pass, int channel) {
         String uri = "/cgi-bin/snapshot.cgi?channel=" + channel;
@@ -25,6 +26,7 @@ final class CctvDigest {
             conn.setConnectTimeout(2500);
             conn.setReadTimeout(3000);
             conn.setRequestMethod("GET");
+            conn.setRequestProperty("Connection", "close");
             conn.connect();
 
             int code = conn.getResponseCode();
@@ -42,9 +44,10 @@ final class CctvDigest {
                     String realm = extractParam(authHeader, "realm");
                     String nonce = extractParam(authHeader, "nonce");
                     String qop = extractParam(authHeader, "qop");
+                    String opaque = extractParam(authHeader, "opaque");
 
                     if (realm != null && nonce != null) {
-                        byte[] data = requestWithAuth(fullUrl, uri, user, pass, realm, nonce, qop);
+                        byte[] data = requestWithAuth(fullUrl, uri, user, pass, realm, nonce, qop, opaque);
                         if (data != null && data.length > 0) {
                             return BitmapFactory.decodeByteArray(data, 0, data.length);
                         }
@@ -59,12 +62,14 @@ final class CctvDigest {
         return null;
     }
 
-    private static byte[] requestWithAuth(String fullUrl, String uri, String user, String pass, String realm, String nonce, String qop) {
+    private static byte[] requestWithAuth(String fullUrl, String uri, String user, String pass,
+                                          String realm, String nonce, String qop, String opaque) {
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(fullUrl).openConnection();
             conn.setConnectTimeout(2500);
             conn.setReadTimeout(3000);
             conn.setRequestMethod("GET");
+            conn.setRequestProperty("Connection", "close");
 
             String ha1 = md5(user + ":" + realm + ":" + pass);
             String ha2 = md5("GET:" + uri);
@@ -83,6 +88,9 @@ final class CctvDigest {
                 authValue = "Digest username=\"" + user + "\", realm=\"" + realm +
                         "\", nonce=\"" + nonce + "\", uri=\"" + uri + "\", response=\"" + response + "\"";
             }
+            if (opaque != null) {
+                authValue += ", opaque=\"" + opaque + "\"";
+            }
             conn.setRequestProperty("Authorization", authValue);
 
             conn.connect();
@@ -95,7 +103,7 @@ final class CctvDigest {
                     return data;
                 }
             } else {
-                Log.w(TAG, "Auth request returned HTTP " + respCode);
+                Log.w(TAG, "Auth request returned HTTP " + respCode + " WWW-Auth=" + conn.getHeaderField("WWW-Authenticate"));
                 conn.disconnect();
             }
         } catch (Exception e) {
@@ -105,7 +113,7 @@ final class CctvDigest {
     }
 
     private static String extractParam(String header, String param) {
-        Pattern p = Pattern.compile(param + "=\"([^\"]+)\"");
+        Pattern p = Pattern.compile(param + "=\"([^\"]*)\"");
         Matcher m = p.matcher(header);
         if (m.find()) return m.group(1);
         Pattern p2 = Pattern.compile(param + "=([^,\\s]+)");
@@ -128,15 +136,21 @@ final class CctvDigest {
         }
     }
 
+    private static String bytesToHex(byte[] bytes) {
+        char[] out = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int v = bytes[i] & 0xFF;
+            out[i * 2] = HEX_CHARS[v >>> 4];
+            out[i * 2 + 1] = HEX_CHARS[v & 0x0F];
+        }
+        return new String(out);
+    }
+
     private static String md5(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : bytes) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
+            return bytesToHex(bytes);
         } catch (Exception e) {
             return "";
         }

@@ -15,28 +15,18 @@ import java.util.regex.Pattern;
 
 public final class DigestHttp {
     private static final String TAG = "HomeCCTV_Digest";
-
-    private static String cachedRealm = null;
-    private static String cachedNonce = null;
+    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
 
     public static Bitmap fetchSnapshot(int channel) {
         String uri = CctvConfig.getSnapshotUri(channel);
         String fullUrl = CctvConfig.getSnapshotUrl(channel);
 
         try {
-            // If we have cached realm and nonce, try authenticating on 1st request
-            if (cachedRealm != null && cachedNonce != null) {
-                byte[] data = requestWithAuth(fullUrl, uri, cachedRealm, cachedNonce);
-                if (data != null && data.length > 0) {
-                    return BitmapFactory.decodeByteArray(data, 0, data.length);
-                }
-            }
-
-            // Otherwise, make standard request to get 401 and extract nonce
             HttpURLConnection conn = (HttpURLConnection) new URL(fullUrl).openConnection();
             conn.setConnectTimeout(2500);
             conn.setReadTimeout(3000);
             conn.setRequestMethod("GET");
+            conn.setRequestProperty("Connection", "close");
             conn.connect();
 
             int code = conn.getResponseCode();
@@ -45,11 +35,13 @@ public final class DigestHttp {
                 conn.disconnect();
 
                 if (authHeader != null && authHeader.contains("Digest")) {
-                    cachedRealm = extractParam(authHeader, "realm");
-                    cachedNonce = extractParam(authHeader, "nonce");
+                    String realm = extractParam(authHeader, "realm");
+                    String nonce = extractParam(authHeader, "nonce");
+                    String qop = extractParam(authHeader, "qop");
+                    String opaque = extractParam(authHeader, "opaque");
 
-                    if (cachedRealm != null && cachedNonce != null) {
-                        byte[] data = requestWithAuth(fullUrl, uri, cachedRealm, cachedNonce);
+                    if (realm != null && nonce != null) {
+                        byte[] data = requestWithAuth(fullUrl, uri, realm, nonce, qop, opaque);
                         if (data != null && data.length > 0) {
                             return BitmapFactory.decodeByteArray(data, 0, data.length);
                         }
@@ -70,40 +62,62 @@ public final class DigestHttp {
         return null;
     }
 
-    private static byte[] requestWithAuth(String fullUrl, String uri, String realm, String nonce) {
+    private static byte[] requestWithAuth(String fullUrl, String uri, String realm, String nonce, String qop, String opaque) {
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(fullUrl).openConnection();
             conn.setConnectTimeout(2500);
             conn.setReadTimeout(3000);
             conn.setRequestMethod("GET");
+            conn.setRequestProperty("Connection", "close");
 
             String ha1 = md5(CctvConfig.user + ":" + realm + ":" + CctvConfig.password);
             String ha2 = md5("GET:" + uri);
-            String response = md5(ha1 + ":" + nonce + ":" + ha2);
 
-            String authValue = "Digest username=\"" + CctvConfig.user + "\", realm=\"" + realm +
-                    "\", nonce=\"" + nonce + "\", uri=\"" + uri + "\", response=\"" + response + "\"";
+            String authValue;
+            if (qop != null && !qop.isEmpty()) {
+                String nc = "00000001";
+                String cnonce = "0a4f113b";
+                String actualQop = qop.contains("auth") ? "auth" : qop;
+                String response = md5(ha1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + actualQop + ":" + ha2);
+                authValue = "Digest username=\"" + CctvConfig.user + "\", realm=\"" + realm +
+                        "\", nonce=\"" + nonce + "\", uri=\"" + uri + "\", qop=" + actualQop +
+                        ", nc=" + nc + ", cnonce=\"" + cnonce + "\", response=\"" + response + "\"";
+            } else {
+                String response = md5(ha1 + ":" + nonce + ":" + ha2);
+                authValue = "Digest username=\"" + CctvConfig.user + "\", realm=\"" + realm +
+                        "\", nonce=\"" + nonce + "\", uri=\"" + uri + "\", response=\"" + response + "\"";
+            }
+            if (opaque != null) {
+                authValue += ", opaque=\"" + opaque + "\"";
+            }
             conn.setRequestProperty("Authorization", authValue);
 
             conn.connect();
-            if (conn.getResponseCode() == 200) {
+            int respCode = conn.getResponseCode();
+            if (respCode == 200) {
                 byte[] data = readBytes(conn.getInputStream());
                 conn.disconnect();
                 return data;
             } else {
+                Log.w(TAG, "Auth request returned HTTP " + respCode + " WWW-Auth=" + conn.getHeaderField("WWW-Authenticate"));
                 conn.disconnect();
             }
         } catch (Exception e) {
-            // Ignore and retry
+            Log.w(TAG, "Auth request failed: " + e.getMessage());
         }
         return null;
     }
 
     private static String extractParam(String header, String param) {
-        Pattern p = Pattern.compile(param + "=\"([^\"]+)\"");
+        Pattern p = Pattern.compile(param + "=\"([^\"]*)\"");
         Matcher m = p.matcher(header);
         if (m.find()) {
             return m.group(1);
+        }
+        Pattern p2 = Pattern.compile(param + "=([^,\\s]+)");
+        Matcher m2 = p2.matcher(header);
+        if (m2.find()) {
+            return m2.group(1);
         }
         return null;
     }
@@ -122,15 +136,21 @@ public final class DigestHttp {
         }
     }
 
+    private static String bytesToHex(byte[] bytes) {
+        char[] out = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int v = bytes[i] & 0xFF;
+            out[i * 2] = HEX_CHARS[v >>> 4];
+            out[i * 2 + 1] = HEX_CHARS[v & 0x0F];
+        }
+        return new String(out);
+    }
+
     private static String md5(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : bytes) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
+            return bytesToHex(bytes);
         } catch (Exception e) {
             return "";
         }

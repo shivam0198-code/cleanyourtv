@@ -145,7 +145,9 @@ final class CctvManager {
     }
 
     private static String buildRtspUrl(String ip, String user, String pass, int channel, int subtype) {
-        return "rtsp://" + user + ":" + pass + "@" + ip + ":554/cam/realmonitor?channel=" + channel + "&subtype=" + subtype;
+        String u = enc(user);
+        String p = enc(pass);
+        return "rtsp://" + u + ":" + p + "@" + ip + ":554/cam/realmonitor?channel=" + channel + "&subtype=" + subtype;
     }
 
     private static String enc(String s) {

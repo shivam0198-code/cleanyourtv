@@ -25,7 +25,7 @@ final class ShareWebTemplate {
                 freeBytes / 1_073_741_824.0, totalBytes / 1_073_741_824.0);
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
-        StringBuilder rows = new StringBuilder();
+        StringBuilder items = new StringBuilder();
 
         for (File f : files) {
             String name = f.getName();
@@ -34,27 +34,40 @@ final class ShareWebTemplate {
             String fRel = getRelativePath(f, rootDir);
             String sizeStr = isDir ? "-" : formatSize(f.length());
             String dateStr = sdf.format(new Date(f.lastModified()));
+            String icon = isDir ? "📁" : (name.toLowerCase(Locale.ROOT).endsWith(".apk") ? "📦" : "📄");
 
-            rows.append("<tr><td>");
+            items.append("<div class='file-item'>\n")
+                 .append("  <div class='file-info'>\n");
+
             if (isDir) {
-                rows.append("<a href='/?path=").append(urlEncode(fRel)).append("'>📁 <b>").append(escape(name)).append("</b></a>");
+                items.append("    <a class='file-link' href='/?path=").append(urlEncode(fRel)).append("'>")
+                     .append("<span class='file-icon'>").append(icon).append("</span>")
+                     .append("<span class='file-name dir-name'>").append(escape(name)).append("</span></a>\n");
             } else {
-                rows.append("📄 ").append(escape(name));
+                items.append("    <div class='file-link'>")
+                     .append("<span class='file-icon'>").append(icon).append("</span>")
+                     .append("<span class='file-name'>").append(escape(name)).append("</span></div>\n");
             }
-            rows.append("</td><td class='muted'>").append(sizeStr).append("</td>");
-            rows.append("<td class='muted'>").append(dateStr).append("</td>");
-            rows.append("<td class='actions'>");
+
+            items.append("    <div class='file-meta'>").append(sizeStr).append(" &bull; ").append(dateStr).append("</div>\n")
+                 .append("  </div>\n")
+                 .append("  <div class='file-actions'>\n");
+
             if (!isDir) {
-                rows.append("<a class='btn-action btn-dl' href='/download?path=").append(urlEncode(fRel)).append("'>Download</a> ");
+                items.append("    <a class='btn-action btn-dl' href='/download?path=").append(urlEncode(fRel)).append("'>Download</a>\n");
             }
-            rows.append("<form method='POST' action='/delete' style='display:inline;' onsubmit='return confirm(\"Delete ").append(escape(name)).append("?\");'>")
-                .append("<input type='hidden' name='path' value='").append(escape(fRel)).append("'>")
-                .append("<button type='submit' class='btn-action btn-del'>Delete</button>")
-                .append("</form>");
-            rows.append("</td></tr>");
+
+            items.append("    <button type='button' class='btn-action btn-del' onclick=\"deleteItem(this, '")
+                 .append(escapeJs(fRel)).append("', '").append(escapeJs(name)).append("')\">Delete</button>\n")
+                 .append("  </div>\n")
+                 .append("</div>\n");
         }
 
-        StringBuilder breadcrumbs = new StringBuilder("<a href='/?path='>Home (/sdcard)</a>");
+        if (files.length == 0) {
+            items.append("<div class='empty-state'>This folder is empty</div>\n");
+        }
+
+        StringBuilder breadcrumbs = new StringBuilder("<a href='/?path='>All Files</a>");
         if (!relPath.isEmpty()) {
             String[] parts = relPath.split("/");
             StringBuilder cur = new StringBuilder();
@@ -75,53 +88,101 @@ final class ShareWebTemplate {
                 "<html lang='en'>\n" +
                 "<head>\n" +
                 "  <meta charset='utf-8'>\n" +
-                "  <meta name='viewport' content='width=device-width, initial-scale=1'>\n" +
-                "  <title>Mi TV File Drop</title>\n" +
+                "  <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'>\n" +
+                "  <title>TV Drop</title>\n" +
                 "  <style>\n" +
-                "    :root { --bg: #0e1022; --card: #181b33; --border: #2c3258; --accent: #39c5cf; --text: #ffffff; --muted: #8b92b2; }\n" +
-                "    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }\n" +
-                "    .container { max-width: 960px; margin: 0 auto; }\n" +
-                "    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }\n" +
-                "    h1 { margin: 0; font-size: 24px; color: var(--accent); }\n" +
-                "    .storage { color: var(--muted); font-size: 14px; }\n" +
-                "    .shortcuts { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }\n" +
-                "    .shortcut { background: var(--card); border: 1px solid var(--border); padding: 6px 14px; border-radius: 20px; color: var(--text); text-decoration: none; font-size: 13px; font-weight: 500; }\n" +
-                "    .shortcut:hover { border-color: var(--accent); }\n" +
-                "    .upload-box { background: var(--card); border: 2px dashed var(--border); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px; transition: border-color 0.2s; }\n" +
-                "    .upload-box.dragover { border-color: var(--accent); background: rgba(57, 197, 207, 0.05); }\n" +
-                "    .breadcrumbs { font-size: 15px; margin-bottom: 16px; color: var(--muted); }\n" +
-                "    .breadcrumbs a { color: var(--accent); text-decoration: none; }\n" +
-                "    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }\n" +
-                "    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }\n" +
-                "    th { background: rgba(0,0,0,0.2); color: var(--muted); font-weight: 600; }\n" +
-                "    tr:hover td { background: rgba(255,255,255,0.02); }\n" +
-                "    a { color: var(--text); text-decoration: none; }\n" +
-                "    a:hover { color: var(--accent); }\n" +
-                "    .muted { color: var(--muted); }\n" +
-                "    .actions { text-align: right; white-space: nowrap; }\n" +
-                "    .btn-action { padding: 4px 10px; border-radius: 6px; font-size: 12px; border: none; cursor: pointer; text-decoration: none; font-weight: 500; display: inline-block; }\n" +
-                "    .btn-dl { background: rgba(57, 197, 207, 0.2); color: var(--accent); }\n" +
-                "    .btn-del { background: rgba(255, 85, 85, 0.2); color: #ff5555; }\n" +
-                "    .btn-primary { background: var(--accent); color: #000; padding: 8px 18px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }\n" +
-                "    .notice { background: rgba(57, 197, 207, 0.15); border: 1px solid var(--accent); padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; }\n" +
+                "    :root {\n" +
+                "      --bg: #111214;\n" +
+                "      --card: #18191c;\n" +
+                "      --card-hover: #202226;\n" +
+                "      --border: #282a2e;\n" +
+                "      --text: #f2f3f5;\n" +
+                "      --muted: #8c909a;\n" +
+                "      --accent: #ffffff;\n" +
+                "      --btn-bg: #26282d;\n" +
+                "      --btn-hover: #31343a;\n" +
+                "      --danger-bg: rgba(239, 68, 68, 0.12);\n" +
+                "      --danger-text: #ef4444;\n" +
+                "    }\n" +
+                "    * { box-sizing: border-box; margin: 0; padding: 0; }\n" +
+                "    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); padding: 16px 14px 40px; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }\n" +
+                "    .container { max-width: 640px; margin: 0 auto; width: 100%; overflow-x: hidden; }\n" +
+                "    header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; flex-wrap: wrap; gap: 8px; }\n" +
+                "    h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }\n" +
+                "    .storage { color: var(--muted); font-size: 13px; font-weight: 400; }\n" +
+                "\n" +
+                "    /* Hero APK Installer Card */\n" +
+                "    .hero-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }\n" +
+                "    .hero-title { font-size: 15px; font-weight: 600; color: var(--text); }\n" +
+                "    .hero-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }\n" +
+                "    .btn-hero { background: var(--accent); color: #111214; border: none; padding: 10px 18px; border-radius: 24px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: opacity 0.15s; }\n" +
+                "    .btn-hero:active { opacity: 0.8; }\n" +
+                "\n" +
+                "    /* Shortcuts */\n" +
+                "    .shortcuts { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }\n" +
+                "    .shortcut { background: var(--card); border: 1px solid var(--border); padding: 7px 14px; border-radius: 20px; color: var(--text); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; transition: background 0.15s; }\n" +
+                "    .shortcut:active { background: var(--card-hover); }\n" +
+                "\n" +
+                "    /* Notice */\n" +
+                "    .notice { background: rgba(255,255,255,0.06); border: 1px solid var(--border); padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; color: var(--text); }\n" +
+                "\n" +
+                "    /* Drop Zone */\n" +
+                "    .upload-box { background: var(--card); border: 1px dashed var(--border); border-radius: 12px; padding: 18px 14px; text-align: center; margin-bottom: 16px; transition: border-color 0.2s, background 0.2s; }\n" +
+                "    .upload-box.dragover { border-color: var(--accent); background: var(--card-hover); }\n" +
+                "    .btn-upload { background: var(--btn-bg); color: var(--text); border: 1px solid var(--border); padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; }\n" +
+                "\n" +
+                "    /* Breadcrumbs */\n" +
+                "    .breadcrumbs { font-size: 13px; margin-bottom: 12px; color: var(--muted); white-space: nowrap; overflow-x: auto; }\n" +
+                "    .breadcrumbs a { color: var(--text); text-decoration: none; font-weight: 500; }\n" +
+                "\n" +
+                "    /* Mobile-first File List (Guaranteed 0 horizontal scroll) */\n" +
+                "    .file-list { display: flex; flex-direction: column; gap: 6px; width: 100%; box-sizing: border-box; }\n" +
+                "    .file-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; box-sizing: border-box; }\n" +
+                "    .file-info { min-width: 0; flex: 1 1 auto; }\n" +
+                "    .file-link { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); min-width: 0; }\n" +
+                "    .file-icon { font-size: 16px; flex-shrink: 0; }\n" +
+                "    .file-name { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--text); }\n" +
+                "    .dir-name { font-weight: 600; }\n" +
+                "    .file-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; margin-left: 24px; }\n" +
+                "    .file-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }\n" +
+                "    .btn-action { padding: 5px 11px; border-radius: 16px; font-size: 12px; border: none; cursor: pointer; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; }\n" +
+                "    .btn-dl { background: var(--btn-bg); color: var(--text); border: 1px solid var(--border); }\n" +
+                "    .btn-del { background: var(--danger-bg); color: var(--danger-text); border: none; }\n" +
+                "    .btn-del:disabled { opacity: 0.5; }\n" +
+                "    .empty-state { text-align: center; padding: 30px 10px; color: var(--muted); font-size: 13px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }\n" +
+                "\n" +
+                "    /* Create Folder */\n" +
                 "    .folder-form { display: flex; gap: 8px; margin-top: 16px; }\n" +
-                "    .input-text { background: var(--bg); border: 1px solid var(--border); color: #fff; padding: 6px 12px; border-radius: 6px; }\n" +
+                "    .input-text { background: var(--card); border: 1px solid var(--border); color: #fff; padding: 8px 12px; border-radius: 18px; flex: 1; font-size: 13px; min-width: 0; outline: none; }\n" +
+                "    .input-text:focus { border-color: #555; }\n" +
+                "    .btn-mkdir { background: var(--btn-bg); color: var(--text); border: 1px solid var(--border); padding: 8px 14px; border-radius: 18px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }\n" +
                 "  </style>\n" +
                 "</head>\n" +
                 "<body>\n" +
                 "  <div class='container'>\n" +
                 "    <header>\n" +
                 "      <div>\n" +
-                "        <h1>📺 CleanYourTV Wireless Drop</h1>\n" +
-                "        <span class='storage'>Internal Storage: " + storageInfo + "</span>\n" +
+                "        <h1>TV Drop</h1>\n" +
+                "        <span class='storage'>TV Storage: " + storageInfo + "</span>\n" +
                 "      </div>\n" +
                 "    </header>\n" +
                 "\n" +
+                "    <div class='hero-card'>\n" +
+                "      <div class='hero-text'>\n" +
+                "        <div class='hero-title'>Install APK on TV</div>\n" +
+                "        <div class='hero-desc'>Instant 1-click install on your TV</div>\n" +
+                "      </div>\n" +
+                "      <form id='apkForm' method='POST' action='/upload' enctype='multipart/form-data'>\n" +
+                "        <input type='hidden' name='dir' value='Download'>\n" +
+                "        <input type='file' name='file' id='apkInput' accept='.apk' style='display:none;' onchange='submitUpload(this)'>\n" +
+                "        <button type='button' class='btn-hero' id='btnApkHero' onclick='document.getElementById(\"apkInput\").click();'>📦 Choose APK</button>\n" +
+                "      </form>\n" +
+                "    </div>\n" +
+                "\n" +
                 "    <div class='shortcuts'>\n" +
-                "      <a class='shortcut' href='/?path=Roms/NES'>🎮 NES Games Folder</a>\n" +
                 "      <a class='shortcut' href='/?path=Download'>📥 Downloads</a>\n" +
-                "      <a class='shortcut' href='/?path=Movies'>🎬 Movies</a>\n" +
-                "      <a class='shortcut' href='/?path='>📁 Root (/sdcard)</a>\n" +
+                "      <a class='shortcut' href='/?path=ROMs'>🎮 ROMs</a>\n" +
+                "      <a class='shortcut' href='/?path='>📁 All Files</a>\n" +
                 "    </div>\n" +
                 "\n" +
                 noticeHtml +
@@ -129,38 +190,86 @@ final class ShareWebTemplate {
                 "    <div class='upload-box' id='dropZone'>\n" +
                 "      <form id='uploadForm' method='POST' action='/upload' enctype='multipart/form-data'>\n" +
                 "        <input type='hidden' name='dir' value='" + escape(relPath) + "'>\n" +
-                "        <p style='margin:0 0 10px 0; font-size: 16px;'><b>Drag &amp; drop files here to upload to this folder</b></p>\n" +
-                "        <input type='file' name='file' id='fileInput' multiple style='display:none;' onchange='document.getElementById(\"uploadForm\").submit();'>\n" +
-                "        <button type='button' class='btn-primary' onclick='document.getElementById(\"fileInput\").click();'>Select Files to Upload</button>\n" +
+                "        <p style='margin:0 0 10px 0; font-size: 13px; color: var(--muted);'>Drop files here or upload to this folder</p>\n" +
+                "        <input type='file' name='file' id='fileInput' multiple style='display:none;' onchange='submitUpload(this)'>\n" +
+                "        <button type='button' class='btn-upload' id='btnUploadGeneric' onclick='document.getElementById(\"fileInput\").click();'>Upload Files</button>\n" +
                 "      </form>\n" +
                 "    </div>\n" +
                 "\n" +
                 "    <div class='breadcrumbs'>" + breadcrumbs + "</div>\n" +
                 "\n" +
-                "    <table>\n" +
-                "      <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th style='text-align:right;'>Action</th></tr></thead>\n" +
-                "      <tbody>\n" +
-                rows +
-                "      </tbody>\n" +
-                "    </table>\n" +
+                "    <div class='file-list'>\n" +
+                items +
+                "    </div>\n" +
                 "\n" +
                 "    <form class='folder-form' method='POST' action='/mkdir'>\n" +
                 "      <input type='hidden' name='dir' value='" + escape(relPath) + "'>\n" +
                 "      <input type='text' name='name' placeholder='New folder name' class='input-text' required>\n" +
-                "      <button type='submit' class='btn-primary' style='padding:6px 14px;'>Create Folder</button>\n" +
+                "      <button type='submit' class='btn-mkdir'>Create Folder</button>\n" +
                 "    </form>\n" +
                 "  </div>\n" +
                 "  <script>\n" +
-                "    const zone = document.getElementById('dropZone');\n" +
-                "    ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.add('dragover'); }));\n" +
-                "    ['dragleave', 'drop'].forEach(e => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.remove('dragover'); }));\n" +
-                "    zone.addEventListener('drop', (ev) => {\n" +
-                "      const files = ev.dataTransfer.files;\n" +
-                "      if (files.length > 0) {\n" +
-                "        document.getElementById('fileInput').files = files;\n" +
-                "        document.getElementById('uploadForm').submit();\n" +
+                "    function submitUpload(input) {\n" +
+                "      if (input.files && input.files.length > 0) {\n" +
+                "        const btn = document.getElementById('btnApkHero');\n" +
+                "        const btnGen = document.getElementById('btnUploadGeneric');\n" +
+                "        if (btn) { btn.disabled = true; btn.textContent = 'Uploading...'; }\n" +
+                "        if (btnGen) { btnGen.disabled = true; btnGen.textContent = 'Uploading...'; }\n" +
+                "        input.form.submit();\n" +
                 "      }\n" +
-                "    });\n" +
+                "    }\n" +
+                "\n" +
+                "    async function deleteItem(btn, relPath, name) {\n" +
+                "      if (!confirm('Delete ' + name + '?')) return;\n" +
+                "      const item = btn.closest('.file-item');\n" +
+                "      btn.disabled = true;\n" +
+                "      btn.style.opacity = '0.5';\n" +
+                "      try {\n" +
+                "        const res = await fetch('/delete', {\n" +
+                "          method: 'POST',\n" +
+                "          headers: {\n" +
+                "            'Content-Type': 'application/x-www-form-urlencoded',\n" +
+                "            'X-Requested-With': 'XMLHttpRequest',\n" +
+                "            'Accept': 'application/json'\n" +
+                "          },\n" +
+                "          body: 'path=' + encodeURIComponent(relPath)\n" +
+                "        });\n" +
+                "        if (res.ok) {\n" +
+                "          item.style.transition = 'all 0.22s ease';\n" +
+                "          item.style.opacity = '0';\n" +
+                "          item.style.transform = 'translateX(20px)';\n" +
+                "          setTimeout(() => {\n" +
+                "            item.remove();\n" +
+                "            const list = document.querySelector('.file-list');\n" +
+                "            if (list && list.children.length === 0) {\n" +
+                "              list.innerHTML = \"<div class='empty-state'>This folder is empty</div>\";\n" +
+                "            }\n" +
+                "          }, 220);\n" +
+                "        } else {\n" +
+                "          alert('Failed to delete');\n" +
+                "          btn.disabled = false;\n" +
+                "          btn.style.opacity = '1';\n" +
+                "        }\n" +
+                "      } catch (e) {\n" +
+                "        alert('Network error');\n" +
+                "        btn.disabled = false;\n" +
+                "        btn.style.opacity = '1';\n" +
+                "      }\n" +
+                "    }\n" +
+                "\n" +
+                "    const zone = document.getElementById('dropZone');\n" +
+                "    if (zone) {\n" +
+                "      ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.add('dragover'); }));\n" +
+                "      ['dragleave', 'drop'].forEach(e => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.remove('dragover'); }));\n" +
+                "      zone.addEventListener('drop', (ev) => {\n" +
+                "        const files = ev.dataTransfer.files;\n" +
+                "        if (files.length > 0) {\n" +
+                "          const input = document.getElementById('fileInput');\n" +
+                "          input.files = files;\n" +
+                "          submitUpload(input);\n" +
+                "        }\n" +
+                "      });\n" +
+                "    }\n" +
                 "  </script>\n" +
                 "</body>\n" +
                 "</html>";
@@ -187,6 +296,11 @@ final class ShareWebTemplate {
     private static String escape(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    private static String escapeJs(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"");
     }
 
     private static String urlEncode(String s) {

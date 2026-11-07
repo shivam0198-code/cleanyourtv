@@ -31,6 +31,15 @@ final class ShareServer {
     private ExecutorService pool;
     private volatile boolean running = false;
 
+    public interface UploadListener {
+        void onFileUploaded(File file);
+    }
+    private UploadListener uploadListener;
+
+    public void setUploadListener(UploadListener listener) {
+        this.uploadListener = listener;
+    }
+
     ShareServer(int port, File rootDir) {
         this.port = port;
         this.rootDir = rootDir;
@@ -198,6 +207,7 @@ final class ShareServer {
         }
 
         String targetDirRel = "";
+        File uploadedFile = null;
         boolean isLast = false;
 
         while (!isLast) {
@@ -237,13 +247,26 @@ final class ShareServer {
                     int ret = streamPartToDiskOrMemory(in, targetDelim, fos);
                     isLast = (ret == 1);
                 }
+                uploadedFile = destFile;
             } else {
                 int ret = streamPartToDiskOrMemory(in, targetDelim, null);
                 isLast = (ret == 1);
             }
         }
 
-        sendRedirect(out, "/?path=" + URLEncoder.encode(targetDirRel, "UTF-8") + "&msg=Upload+successful");
+        String accept = headers.getOrDefault("accept", "");
+        String xrw = headers.getOrDefault("x-requested-with", "");
+        if (accept.contains("application/json") || "XMLHttpRequest".equalsIgnoreCase(xrw)) {
+            String json = "{\"ok\":true,\"file\":\"" + (uploadedFile != null ? uploadedFile.getName() : "") + "\"}";
+            sendResponse(out, "200 OK", "application/json", json.getBytes(StandardCharsets.UTF_8));
+        } else {
+            sendRedirect(out, "/?path=" + URLEncoder.encode(targetDirRel, "UTF-8") + "&msg=Upload+successful");
+        }
+
+        if (uploadedFile != null && uploadListener != null) {
+            final File finalFile = uploadedFile;
+            uploadListener.onFileUploaded(finalFile);
+        }
     }
 
     private int streamPartToDiskOrMemory(InputStream in, byte[] targetDelim, OutputStream sink) throws IOException {
@@ -285,13 +308,21 @@ final class ShareServer {
         Map<String, String> form = parseQuery(new String(body, StandardCharsets.UTF_8));
         String targetPath = form.get("path");
         String parentRel = "";
+        boolean deleted = false;
         if (targetPath != null) {
             File f = resolvePath(targetPath);
             File parent = f.getParentFile();
             parentRel = parent != null ? getRelativePath(parent, rootDir) : "";
-            deleteRecursive(f);
+            deleted = deleteRecursive(f);
         }
-        sendRedirect(out, "/?path=" + URLEncoder.encode(parentRel, "UTF-8") + "&msg=Deleted");
+        String accept = headers.getOrDefault("accept", "");
+        String xrw = headers.getOrDefault("x-requested-with", "");
+        if (accept.contains("application/json") || "XMLHttpRequest".equalsIgnoreCase(xrw)) {
+            String json = "{\"ok\":" + deleted + "}";
+            sendResponse(out, "200 OK", "application/json", json.getBytes(StandardCharsets.UTF_8));
+        } else {
+            sendRedirect(out, "/?path=" + URLEncoder.encode(parentRel, "UTF-8") + "&msg=Deleted");
+        }
     }
 
     private void handleMkdir(InputStream in, OutputStream out, Map<String, String> headers) throws IOException {

@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ChangedPackages;
@@ -189,6 +190,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private View clockBlock;
     private TextView btnShare;
     private ShareServer shareServer;
+    private Dialog shareDialog;
+    private File pendingInstallApk;
+    private String pendingPackageName;
     private View btnInputs;
     private String inputsMenuAlign = "end";
     private int inputsMenuOffsetX = 0;
@@ -424,6 +428,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Updates send REMOVED followed by ADDED; keep the tile until the new APK is ready.
             if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
                     && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
+            if (Intent.ACTION_PACKAGE_ADDED.equals(intent.getAction())) {
+                Uri data = intent.getData();
+                String installedPkg = (data != null) ? data.getSchemeSpecificPart() : null;
+                if (installedPkg != null && installedPkg.equals(pendingPackageName)) {
+                    if (pendingInstallApk != null && pendingInstallApk.exists()) {
+                        boolean del = pendingInstallApk.delete();
+                        android.util.Log.i("TvHome", "Cleaned up temporary APK for " + installedPkg + ": " + del);
+                    }
+                    pendingInstallApk = null;
+                    pendingPackageName = null;
+                }
+            }
             // In the background this only marks the tiles stale; onResume rebuilds them once.
             if (!tileRefresh.onPackagesChanged()) return;
             reloadApps(false);
@@ -4144,6 +4160,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         try {
             shareServer = new ShareServer(8080, storageRoot);
+            shareServer.setUploadListener(file -> {
+                if (file != null && file.getName().toLowerCase(Locale.ROOT).endsWith(".apk")) {
+                    root.postDelayed(() -> triggerApkInstall(file), 150);
+                }
+            });
             shareServer.start();
         } catch (Exception e) {
             android.util.Log.e("TvHomeShare", "Failed starting ShareServer", e);
@@ -4167,6 +4188,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         storage.setText(storageText);
 
         final Dialog dialog = new Dialog(this);
+        shareDialog = dialog;
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(panel);
         dialog.setCanceledOnTouchOutside(true);
@@ -4178,6 +4200,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
 
         dialog.setOnDismissListener(d -> {
+            if (shareDialog == dialog) shareDialog = null;
             if (shareServer != null) {
                 shareServer.stop();
                 shareServer = null;
@@ -4185,6 +4208,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
 
         dialog.show();
+    }
+
+    private void triggerApkInstall(File apkFile) {
+        try {
+            if (shareDialog != null && shareDialog.isShowing()) {
+                shareDialog.dismiss();
+            }
+            PackageManager pm = getPackageManager();
+            PackageInfo pi = pm.getPackageArchiveInfo(apkFile.getAbsolutePath(), 0);
+            this.pendingInstallApk = apkFile;
+            this.pendingPackageName = (pi != null) ? pi.packageName : null;
+
+            Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
+                    this, getPackageName() + ".provider", apkFile);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(intent);
+            android.util.Log.i("TvHome", "Launched native package installer for " + apkFile.getName() + " (" + pendingPackageName + ")");
+        } catch (Exception e) {
+            android.util.Log.e("TvHome", "Failed to launch package installer", e);
+            Toast.makeText(this, "Failed to launch installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private String getDeviceWifiIp() {

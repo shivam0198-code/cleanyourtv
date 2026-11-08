@@ -149,9 +149,9 @@
         <LinearLayout
             android:id="@+id/heroDots"
             android:layout_width="wrap_content"
-            android:layout_height="6dp"
+            android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="10dp"
             android:orientation="horizontal"
             android:visibility="gone" />
     </LinearLayout>
@@ -447,6 +447,7 @@
                 android:id="@+id/cctvContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="#14FFFFFF"
                 android:visibility="gone"
                 android:alpha="0">
 
@@ -486,6 +487,7 @@
                                     android:layout_height="match_parent"
                                     android:layout_weight="1"
                                     android:layout_margin="6dp"
+                                    android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
                                     android:clickable="true"
                                     android:focusable="true"
@@ -521,6 +523,7 @@
                                     android:layout_height="match_parent"
                                     android:layout_weight="1"
                                     android:layout_margin="6dp"
+                                    android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
                                     android:clickable="true"
                                     android:focusable="true"
@@ -565,6 +568,7 @@
                                     android:layout_height="match_parent"
                                     android:layout_weight="1"
                                     android:layout_margin="6dp"
+                                    android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
                                     android:clickable="true"
                                     android:focusable="true"
@@ -600,6 +604,7 @@
                                     android:layout_height="match_parent"
                                     android:layout_weight="1"
                                     android:layout_margin="6dp"
+                                    android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
                                     android:clickable="true"
                                     android:focusable="true"
@@ -632,39 +637,53 @@
                             </LinearLayout>
                         </LinearLayout>
 
-                        <!-- Peeking Column: Camera 5 -->
-                        <FrameLayout
-                            android:id="@+id/cctv_card_5"
+                        <!-- Peeking Column: Camera 5 (exact same tile size as Row 1, wasted space below) -->
+                        <LinearLayout
                             android:layout_width="340dp"
                             android:layout_height="match_parent"
-                            android:layout_margin="6dp"
-                            android:background="@drawable/cctv_card_glass"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:nextFocusLeft="@+id/cctv_card_2">
+                            android:orientation="vertical">
 
-                            <ImageView
-                                android:id="@+id/cctv_img_5"
+                            <FrameLayout
+                                android:id="@+id/cctv_card_5"
                                 android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:scaleType="centerCrop" />
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:layout_margin="6dp"
+                                android:clipToOutline="true"
+                                android:background="@drawable/cctv_card_glass"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:nextFocusLeft="@+id/cctv_card_2">
 
-                            <TextView
-                                android:id="@+id/cctv_label_5"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="top|left"
-                                android:layout_margin="10dp"
-                                android:background="@drawable/cctv_pill_glass"
-                                android:paddingLeft="10dp"
-                                android:paddingTop="4dp"
-                                android:paddingRight="10dp"
-                                android:paddingBottom="4dp"
-                                android:text="Camera 5"
-                                android:textColor="#FFFFFF"
-                                android:textSize="11sp"
-                                android:textStyle="bold" />
-                        </FrameLayout>
+                                <ImageView
+                                    android:id="@+id/cctv_img_5"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:scaleType="centerCrop" />
+
+                                <TextView
+                                    android:id="@+id/cctv_label_5"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="top|left"
+                                    android:layout_margin="10dp"
+                                    android:background="@drawable/cctv_pill_glass"
+                                    android:paddingLeft="10dp"
+                                    android:paddingTop="4dp"
+                                    android:paddingRight="10dp"
+                                    android:paddingBottom="4dp"
+                                    android:text="Camera 5"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </FrameLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:layout_margin="6dp" />
+                        </LinearLayout>
                     </LinearLayout>
                 </HorizontalScrollView>
 
@@ -673,14 +692,22 @@
                     android:id="@+id/cctvExpandedOverlay"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:background="#D9000000"
+                    android:background="#E60A0C10"
                     android:visibility="gone">
+
+                    <ImageView
+                        android:id="@+id/cctvHdImg"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_margin="12dp"
+                        android:scaleType="fitCenter" />
 
                     <TextureView
                         android:id="@+id/cctvHdVideo"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:layout_margin="12dp" />
+                        android:layout_margin="12dp"
+                        android:visibility="gone" />
 
                     <LinearLayout
                         android:layout_width="wrap_content"

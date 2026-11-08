@@ -12,7 +12,12 @@ final class ShareWebTemplate {
     static String render(File currentDir, File rootDir, String notice) {
         String relPath = getRelativePath(currentDir, rootDir);
         File[] files = currentDir.listFiles();
-        if (files == null) files = new File[0];
+        if (files == null) {
+            files = new File[0];
+            if (notice == null || notice.isEmpty()) {
+                notice = "Storage access is restricted. Grant storage permissions on the TV.";
+            }
+        }
         Arrays.sort(files, (a, b) -> {
             if (a.isDirectory() && !b.isDirectory()) return -1;
             if (!a.isDirectory() && b.isDirectory()) return 1;

@@ -1,5 +1,6 @@
 package com.gathin.tvhome;
 
+import android.Manifest;
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
@@ -22,6 +23,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
+import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Rect;
@@ -59,6 +61,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.SoundEffectConstants;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.animation.AnimationUtils;
@@ -124,7 +127,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * 2025-01-01. TVs without a clock battery boot at the epoch (08:00 in China) and keep it until network
      * time arrives; the clock, date and greeting stay hidden before then.
      */
-    private static final long TIME_VALID_AFTER_MS = 1_735_689_600_000L;
+    private static final long TIME_VALID_AFTER_MS = 946684800000L;
     private String liveTvPkg;
     private String castApp = "";
     private String castAppLabel = "";
@@ -394,9 +397,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private final ImageView[] cctvImgs = new ImageView[5];
     private FrameLayout cctvExpandedOverlay;
     private TextureView cctvHdVideo;
+    private ImageView cctvHdImg;
     private TextView cctvExpandedTitle;
     private int cctvExpandedChannel = -1;
     private CctvManager cctvManager;
+
+    private boolean dockDots = true;
+    private int dockDotsSize = 4;
+    private int dockDotsFocusedWidth = 14;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
@@ -589,7 +597,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroArt = findViewById(R.id.heroArt);
         cinematic = cfg.cinematicHome;
         glowStyle = cfg.glowStyle;
-        heroDotsShown = cfg.cinematicDots;
+        dockDots = cfg.dockDots;
+        dockDotsSize = cfg.dockDotsSize;
+        dockDotsFocusedWidth = cfg.dockDotsFocusedWidth;
+        heroDotsShown = cfg.dockDots;
+        heroDots.setVisibility(dockDots ? View.VISIBLE : View.GONE);
         cinematicWhiteFocus = cfg.cinematicWhiteFocus;
         heroArtAlpha = cfg.cinematicArt / 100f;
         if (cinematic) setUpCinematicShelf(cfg.cinematicScrim);
@@ -684,6 +696,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         cctvScrollView = findViewById(R.id.cctvScrollView);
         cctvExpandedOverlay = findViewById(R.id.cctvExpandedOverlay);
         cctvHdVideo = findViewById(R.id.cctvHdVideo);
+        cctvHdImg = findViewById(R.id.cctvHdImg);
         cctvExpandedTitle = findViewById(R.id.cctvExpandedTitle);
 
         if (cctvEnabled) {
@@ -2138,8 +2151,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** The shelf's text for this dock app: its name and, on the cinematic shelf, "Last opened" and the dots. */
     private void fillHero(int position, String label) {
         heroName.setText(label);
-        if (!cinematic) return;
-        updateHeroMeta(position);
+        if (cinematic) {
+            updateHeroMeta(position);
+        }
         updateHeroDots(position);
     }
 
@@ -2238,18 +2252,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** One dot per dock app, the focused one drawn long and white. Hebrew docks start on the right, so do the dots. */
     private void updateHeroDots(int position) {
-        if (!heroDotsShown) return;
+        if (!dockDots) {
+            heroDots.setVisibility(View.GONE);
+            return;
+        }
         int count = Math.min(adapter.dockFilled(), COLUMNS);
         heroDots.setVisibility(count > 1 ? View.VISIBLE : View.INVISIBLE);
+        int dotH = (int) (dockDotsSize * density);
+        int cornerR = (int) ((dockDotsSize / 2f) * density);
+        int focusedW = (int) (dockDotsFocusedWidth * density);
         if (heroDots.getChildCount() != count) {
             heroDots.removeAllViews();
             for (int i = 0; i < count; i++) {
                 View dot = new View(this);
                 GradientDrawable bg = new GradientDrawable();
-                bg.setCornerRadius(3 * density);
+                bg.setCornerRadius(cornerR);
                 dot.setBackground(bg);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int) (6 * density), (int) (6 * density));
-                if (i > 0) lp.leftMargin = (int) (6 * density);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dotH, dotH);
+                if (i > 0) lp.leftMargin = (int) (5 * density);
                 heroDots.addView(dot, lp);
             }
         }
@@ -2258,9 +2278,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             boolean on = i == position;
             ((GradientDrawable) dot.getBackground()).setColor(on ? 0xFFFFFFFF : 0x4DFFFFFF);
             ViewGroup.LayoutParams lp = dot.getLayoutParams();
-            int w = (int) ((on ? 20 : 6) * density);
-            if (lp.width != w) {
+            int w = on ? focusedW : dotH;
+            if (lp.width != w || lp.height != dotH) {
                 lp.width = w;
+                lp.height = dotH;
                 dot.setLayoutParams(lp);
             }
         }
@@ -2587,7 +2608,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (ramText != null) {
                 ramText.setText(String.format(Locale.US, "RAM  %.1f / %.1f GB", usedGb, totalGb));
             }
-            ramMeterLayout.setVisibility(View.VISIBLE);
+            boolean clockVis = clockBlock != null && clockBlock.getVisibility() == View.VISIBLE;
+            ramMeterLayout.setVisibility(clockVis ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -2611,6 +2633,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
             if (cctvCards[i] != null) {
                 final int idx = i;
+                cctvCards[i].setClipToOutline(true);
+                cctvCards[i].setOutlineProvider(new ViewOutlineProvider() {
+                    @Override
+                    public void getOutline(View view, Outline outline) {
+                        outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), 16 * density);
+                    }
+                });
                 cctvCards[i].setOnClickListener(v -> expandCctvHd(channel));
                 cctvCards[i].setOnFocusChangeListener((v, hasFocus) -> {
                     v.animate()
@@ -2703,21 +2732,28 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void expandCctvHd(int channel) {
-        if (cctvExpandedOverlay == null || cctvHdVideo == null || cctvManager == null) return;
+        if (cctvExpandedOverlay == null || cctvManager == null) return;
         cctvExpandedChannel = channel;
         if (cctvExpandedTitle != null) {
             cctvExpandedTitle.setText("Camera " + channel);
+        }
+        if (cctvHdImg != null && channel >= 1 && channel <= 5) {
+            ImageView src = cctvImgs[channel - 1];
+            if (src != null && src.getDrawable() != null) {
+                cctvHdImg.setImageDrawable(src.getDrawable());
+            }
         }
         cctvExpandedOverlay.setVisibility(View.VISIBLE);
         cctvExpandedOverlay.setAlpha(0f);
         cctvExpandedOverlay.animate().alpha(1f).setDuration(200).start();
 
-        cctvManager.startHdStream(cctvIp, cctvUser, cctvPassword, channel, cctvHdVideo, null);
+        cctvManager.startHighSpeedStream(cctvIp, cctvUser, cctvPassword, channel, cctvHdImg);
     }
 
     private void collapseCctvHd() {
         if (cctvExpandedOverlay == null || cctvExpandedOverlay.getVisibility() != View.VISIBLE) return;
         if (cctvManager != null) {
+            cctvManager.stopHighSpeedStream();
             cctvManager.releasePlayer();
             cctvManager.startSnapshotLoop(cctvIp, cctvUser, cctvPassword, cctvChannels, cctvImgs);
         }
@@ -3044,6 +3080,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void updateClockVisibility() {
         boolean valid = System.currentTimeMillis() >= TIME_VALID_AFTER_MS;
         clockBlock.setVisibility(valid ? View.VISIBLE : View.INVISIBLE);
+        if (ramMeterLayout != null) {
+            ramMeterLayout.setVisibility(valid && showRamMeter ? View.VISIBLE : View.GONE);
+        }
         handler.removeCallbacks(clockCheck);
         if (valid) {
             updateGreeting();
@@ -4446,6 +4485,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void showShareOverlay() {
+        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+            }, 101);
+        }
+
         if (shareServer != null) {
             shareServer.stop();
             shareServer = null;

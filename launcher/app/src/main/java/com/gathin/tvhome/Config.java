@@ -253,6 +253,9 @@ final class Config {
     final boolean dockBand;
     /** The dock position dots under the cinematic shelf's name (config.xml, cinematic_dots); false leaves them out. */
     final boolean cinematicDots;
+    final boolean dockDots;
+    final int dockDotsSize;
+    final int dockDotsFocusedWidth;
     /** The cinematic shelf keeps the white focus highlight instead of the app's colour (config.xml, cinematic_white_focus). */
     final boolean cinematicWhiteFocus;
     /** The Wi-Fi pill's icon green while the TV is online (config.xml, wifi_status_color); false keeps it white. */
@@ -312,7 +315,11 @@ final class Config {
                    int openOnStartNetworkWait, boolean openOnStartOnWake, boolean iconOnlyVpn, String clockFormat, boolean backOpensClock, boolean glowSnap,
                    String castApp, String castAppLabel,
                    boolean iconOnlyShare, boolean iconOnlyWifi, boolean iconOnlySettings, String inputsMenuAlign, int inputsMenuOffsetX,
-                   boolean showRamMeter, boolean cctvEnabled, String cctvIp, String cctvUser, String cctvPassword, int cctvChannels) {
+                   boolean showRamMeter, boolean cctvEnabled, String cctvIp, String cctvUser, String cctvPassword, int cctvChannels,
+                   boolean dockDots, int dockDotsSize, int dockDotsFocusedWidth) {
+        this.dockDots = dockDots;
+        this.dockDotsSize = dockDotsSize;
+        this.dockDotsFocusedWidth = dockDotsFocusedWidth;
         this.iconOnlyShare = iconOnlyShare;
         this.iconOnlyWifi = iconOnlyWifi;
         this.iconOnlySettings = iconOnlySettings;
@@ -564,6 +571,9 @@ final class Config {
         boolean dockEvenPadding = res.getBoolean(R.bool.dock_even_padding);
         boolean dockBand = res.getBoolean(R.bool.dock_band);
         boolean cinematicDots = res.getBoolean(R.bool.cinematic_dots);
+        boolean dockDots = res.getBoolean(R.bool.dock_dots);
+        int dockDotsSize = res.getInteger(R.integer.dock_dots_size);
+        int dockDotsFocusedWidth = res.getInteger(R.integer.dock_dots_focused_width);
         boolean cinematicWhiteFocus = res.getBoolean(R.bool.cinematic_white_focus);
         boolean wifiStatusColor = res.getBoolean(R.bool.wifi_status_color);
         int cinematicArt = res.getInteger(R.integer.cinematic_art);
@@ -691,6 +701,9 @@ final class Config {
             dockEvenPadding = bool(json, "dock_even_padding", dockEvenPadding);
             dockBand = bool(json, "dock_band", dockBand);
             cinematicDots = bool(json, "cinematic_dots", cinematicDots);
+            dockDots = bool(json, "dock_dots", bool(json, "cinematic_dots", dockDots));
+            dockDotsSize = integer(json, "dock_dots_size", dockDotsSize, 2, 24);
+            dockDotsFocusedWidth = integer(json, "dock_dots_focused_width", dockDotsFocusedWidth, 4, 60);
             cinematicWhiteFocus = bool(json, "cinematic_white_focus", cinematicWhiteFocus);
             wifiStatusColor = bool(json, "wifi_status_color", wifiStatusColor);
             cinematicArt = integer(json, "cinematic_art", cinematicArt, 0, 100);
@@ -778,7 +791,8 @@ final class Config {
                 Math.max(0, Math.min(600, openOnStartNetworkWait)), openOnStartOnWake, iconOnlyVpn, clockFormat, backOpensClock, glowSnap,
                 castApp, castAppLabel,
                 iconOnlyShare, iconOnlyWifi, iconOnlySettings, inputsMenuAlign, inputsMenuOffsetX,
-                showRamMeter, cctvEnabled, cctvIp, cctvUser, cctvPassword, cctvChannels);
+                showRamMeter, cctvEnabled, cctvIp, cctvUser, cctvPassword, cctvChannels,
+                dockDots, dockDotsSize, dockDotsFocusedWidth);
     }
 
     /**

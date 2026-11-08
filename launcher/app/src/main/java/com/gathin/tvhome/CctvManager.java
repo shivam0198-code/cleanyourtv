@@ -136,15 +136,55 @@ final class CctvManager {
         }
     }
 
+    private volatile boolean hdStreaming = false;
+    private ExecutorService hdExecutor;
+
+    void startHighSpeedStream(String ip, String user, String pass, int channel, ImageView target) {
+        stopHighSpeedStream();
+        hdStreaming = true;
+        hdExecutor = Executors.newSingleThreadExecutor();
+        hdExecutor.execute(() -> {
+            while (hdStreaming) {
+                Bitmap bmp = CctvDigest.fetchSnapshot(ip, user, pass, channel);
+                if (bmp != null && hdStreaming) {
+                    mainHandler.post(() -> {
+                        if (hdStreaming && target != null) {
+                            target.setImageBitmap(bmp);
+                        }
+                    });
+                }
+                try {
+                    Thread.sleep(150);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        });
+    }
+
+    void stopHighSpeedStream() {
+        hdStreaming = false;
+        if (hdExecutor != null) {
+            hdExecutor.shutdownNow();
+            hdExecutor = null;
+        }
+    }
+
     void releasePlayer() {
-        if (player != null) {
-            player.release();
-            player = null;
+        final ExoPlayer p = player;
+        player = null;
+        if (p != null) {
+            Executors.newSingleThreadExecutor().execute(() -> {
+                try {
+                    p.release();
+                } catch (Exception ignored) {}
+            });
         }
     }
 
     void releaseAll() {
         stopSnapshotLoop();
+        stopHighSpeedStream();
         releasePlayer();
     }
 

@@ -201,6 +201,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private File pendingInstallApk;
     private String pendingPackageName;
     private View btnInputs;
+    private View btnSettings;
+    private BroadcastReceiver globalButtonReceiver;
     private String inputsMenuAlign = "end";
     private int inputsMenuOffsetX = 0;
     /** config show_inputs_pill: false keeps the Inputs pill hidden even when the TV has inputs. */
@@ -692,7 +694,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         gutterTab = findViewById(R.id.gutterTab);
         if (gutterTab != null) {
             gutterTab.setVisibility(cctvEnabled ? View.VISIBLE : View.GONE);
-            gutterTab.setOnClickListener(v -> showCctvView());
+            gutterTab.setFocusable(false);
+            gutterTab.setClickable(false);
         }
 
         cctvContainer = findViewById(R.id.cctvContainer);
@@ -920,7 +923,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         inputsMenuAlign = cfg.inputsMenuAlign;
         inputsMenuOffsetX = cfg.inputsMenuOffsetX;
 
-        View btnSettings = findViewById(R.id.btnSettings);
+        btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnVpn.setOnClickListener(v -> openVpnPill());
@@ -1007,6 +1010,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (cctvShown) {
+                    if (v == btnShare || v == btnInputs) {
+                        if (cctvCards[0] != null) cctvCards[0].requestFocus();
+                    } else if (v == btnWifi) {
+                        if (cctvCards[1] != null) cctvCards[1].requestFocus();
+                    } else {
+                        if (cctvCards[4] != null) cctvCards[4].requestFocus();
+                        else if (cctvCards[1] != null) cctvCards[1].requestFocus();
+                    }
+                    return true;
+                }
                 // Back to the dock tile Up came from, not wherever the focus finder lands.
                 focusTile(singleRow ? lastFocused : lastFocused % COLUMNS);
                 return true;
@@ -1017,10 +1031,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int rightButton = rtlMenuBar ? firstButton : R.id.btnSettings;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return v.getId() == leftButton;
             if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton) {
-                if (cctvEnabled && !cctvShown) {
-                    showCctvView();
-                    return true;
-                }
                 return true;
             }
             return false;
@@ -1071,6 +1081,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             } else {
                 registerReceiver(wakeReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
             }
+        }
+
+        globalButtonReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if ("android.intent.action.GLOBAL_BUTTON".equals(intent.getAction())) {
+                    int code = intent.getIntExtra("keyCode", 0);
+                    if (code == 0) {
+                        KeyEvent ke = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+                        if (ke != null) code = ke.getKeyCode();
+                    }
+                    if (code == 192 || code == KeyEvent.KEYCODE_BUTTON_11) {
+                        executePatchWallAction();
+                    }
+                }
+            }
+        };
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(globalButtonReceiver, new IntentFilter("android.intent.action.GLOBAL_BUTTON"), Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(globalButtonReceiver, new IntentFilter("android.intent.action.GLOBAL_BUTTON"));
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not register globalButtonReceiver", e);
         }
 
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -1521,6 +1556,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (gameDay != null) gameDay.shutdown();
         unregisterReceiver(packageReceiver);
         if (openOnStartOnWake) unregisterReceiver(wakeReceiver);
+        if (globalButtonReceiver != null) {
+            try { unregisterReceiver(globalButtonReceiver); } catch (Exception ignored) {}
+            globalButtonReceiver = null;
+        }
         wallpaperPlayer.close();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
@@ -1563,6 +1602,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == 192 || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_11) {
+            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                executePatchWallAction();
+            }
+            return true;
+        }
         // Vendor keys (TCL Netflix button, 4062) never reach the key services, only the focused window, so their
         // "hold:" entries run here too or nowhere. Only while resumed: onPause releases Home's holds, and a DOWN
         // taken after that would arm one nothing releases.
@@ -1642,6 +1687,35 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         if (cctvCards[4] != null) cctvCards[4].requestFocus();
                         return true;
                     } else if (cur == cctvCards[4]) {
+                        return true;
+                    }
+                } else if (code == KeyEvent.KEYCODE_DPAD_UP) {
+                    View cur = getCurrentFocus();
+                    if (cur == cctvCards[0]) {
+                        focusTopButtonFromCctv(1);
+                        return true;
+                    } else if (cur == cctvCards[1]) {
+                        focusTopButtonFromCctv(2);
+                        return true;
+                    } else if (cur == cctvCards[4]) {
+                        focusTopButtonFromCctv(5);
+                        return true;
+                    } else if (cur == cctvCards[2]) {
+                        if (cctvCards[0] != null) cctvCards[0].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[3]) {
+                        if (cctvCards[1] != null) cctvCards[1].requestFocus();
+                        return true;
+                    }
+                } else if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    View cur = getCurrentFocus();
+                    if (cur == cctvCards[0]) {
+                        if (cctvCards[2] != null) cctvCards[2].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[1]) {
+                        if (cctvCards[3] != null) cctvCards[3].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[2] || cur == cctvCards[3] || cur == cctvCards[4]) {
                         return true;
                     }
                 }
@@ -1965,8 +2039,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
-        // Home screen: Back goes nowhere, unless back_opens_clock is on.
-        if (backOpensClock) startActivity(new Intent(this, ClockActivity.class));
+        if (backOpensClock) {
+            startActivity(new Intent(this, ClockActivity.class));
+            return;
+        }
+        // Quick swap between dock / app grid and top-bar Settings button
+        ViewGroup topButtons = findViewById(R.id.topButtons);
+        boolean topFocused = (btnSettings != null && btnSettings.hasFocus())
+                || (topButtons != null && topButtons.hasFocus());
+        if (topFocused) {
+            focusTile(0);
+        } else if (btnSettings != null) {
+            btnSettings.requestFocus();
+        }
     }
 
     // ---- glass highlight -------------------------------------------------------------------------
@@ -2923,7 +3008,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (singleRow) {
             // One row: Up leaves for the top bar, Down has nowhere to go, and Left/Right walk the whole row,
             // stopping at its two ends (the default focus search scrolls the row to the next tile).
-            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return false;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                focusTopBarFromDock(position);
+                return true;
+            }
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) return true;
             boolean forward = rtlAppGrid ? keyCode == KeyEvent.KEYCODE_DPAD_LEFT : keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
             int last = adapter.focusablePosition(count - 1);
@@ -2953,7 +3041,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     rtlAppGrid, keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
+            if (position < COLUMNS) {
+                focusTopBarFromDock(position);
+                return true;
+            }
             target = position - COLUMNS;
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
@@ -3198,6 +3289,78 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         };
         grid.addOnScrollListener(pendingFocusScroll);
         grid.smoothScrollToPosition(pos);
+    }
+
+    private void focusTopBarFromDock(int dockPosition) {
+        lastFocused = dockPosition;
+        if (dockPosition <= 1) {
+            if (btnShare != null && btnShare.getVisibility() == View.VISIBLE) {
+                btnShare.requestFocus();
+                return;
+            }
+            if (btnInputs != null && btnInputs.getVisibility() == View.VISIBLE) {
+                btnInputs.requestFocus();
+                return;
+            }
+        } else if (dockPosition == 2) {
+            if (btnInputs != null && btnInputs.getVisibility() == View.VISIBLE) {
+                btnInputs.requestFocus();
+                return;
+            }
+            if (btnWifi != null && btnWifi.getVisibility() == View.VISIBLE) {
+                btnWifi.requestFocus();
+                return;
+            }
+        } else if (dockPosition == 3) {
+            if (btnWifi != null && btnWifi.getVisibility() == View.VISIBLE) {
+                btnWifi.requestFocus();
+                return;
+            }
+        }
+        if (btnSettings != null) {
+            btnSettings.requestFocus();
+        } else {
+            firstTopButton().requestFocus();
+        }
+    }
+
+    private void focusTopButtonFromCctv(int cam) {
+        if (cam == 1) {
+            if (btnShare != null && btnShare.getVisibility() == View.VISIBLE) {
+                btnShare.requestFocus();
+                return;
+            }
+            if (btnInputs != null && btnInputs.getVisibility() == View.VISIBLE) {
+                btnInputs.requestFocus();
+                return;
+            }
+        } else if (cam == 2) {
+            if (btnWifi != null && btnWifi.getVisibility() == View.VISIBLE) {
+                btnWifi.requestFocus();
+                return;
+            }
+        }
+        if (btnSettings != null) {
+            btnSettings.requestFocus();
+        } else {
+            firstTopButton().requestFocus();
+        }
+    }
+
+    private void executePatchWallAction() {
+        String action = cfg != null ? cfg.patchwallButton : "share";
+        if (action == null || action.trim().isEmpty() || "share".equalsIgnoreCase(action)) {
+            showShareOverlay();
+        } else if ("cctv".equalsIgnoreCase(action) || "camera".equalsIgnoreCase(action)) {
+            if (!cctvShown) showCctvView();
+        } else if ("inputs".equalsIgnoreCase(action)) {
+            showInputs();
+        } else if ("home".equalsIgnoreCase(action)) {
+            if (cctvShown) hideCctvView();
+            focusTile(0);
+        } else {
+            RemoteKeys.launch(this, action);
+        }
     }
 
     // ---- top bar ---------------------------------------------------------------------------------

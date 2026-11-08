@@ -491,7 +491,7 @@
                                     android:foreground="@drawable/cctv_card_selector"
                                     android:clickable="true"
                                     android:focusable="true"
-                                    android:nextFocusUp="@+id/cctv_card_1"
+                                    android:nextFocusUp="@+id/btnShare"
                                     android:nextFocusLeft="@+id/cctv_card_1"
                                     android:nextFocusRight="@+id/cctv_card_2"
                                     android:nextFocusDown="@+id/cctv_card_3">
@@ -530,7 +530,7 @@
                                     android:foreground="@drawable/cctv_card_selector"
                                     android:clickable="true"
                                     android:focusable="true"
-                                    android:nextFocusUp="@+id/cctv_card_2"
+                                    android:nextFocusUp="@+id/btnWifi"
                                     android:nextFocusLeft="@+id/cctv_card_1"
                                     android:nextFocusRight="@+id/cctv_card_5"
                                     android:nextFocusDown="@+id/cctv_card_4">
@@ -664,7 +664,7 @@
                                 android:foreground="@drawable/cctv_card_selector"
                                 android:clickable="true"
                                 android:focusable="true"
-                                android:nextFocusUp="@+id/cctv_card_5"
+                                android:nextFocusUp="@+id/btnSettings"
                                 android:nextFocusLeft="@+id/cctv_card_2"
                                 android:nextFocusRight="@+id/cctv_card_5"
                                 android:nextFocusDown="@+id/cctv_card_5">
@@ -713,6 +713,9 @@
         android:layout_marginEnd="6dp"
         android:background="@drawable/glass_gutter_tab"
         android:alpha="0.22"
+        android:clickable="false"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
         android:importantForAccessibility="no" />
 
     <!-- The single floating glass highlight that springs between tiles. -->

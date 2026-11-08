@@ -149,6 +149,7 @@ final class Config {
     final String cctvUser;
     final String cctvPassword;
     final int cctvChannels;
+    final String patchwallButton;
     /** With vpn_pill, the VPN pill as a round lock button (config.xml / theme icon_only_vpn). */
     final boolean iconOnlyVpn;
     /** Back on the Home screen opens the clock screensaver instead of doing nothing (config.xml / theme back_opens_clock). */
@@ -315,7 +316,7 @@ final class Config {
                    int openOnStartNetworkWait, boolean openOnStartOnWake, boolean iconOnlyVpn, String clockFormat, boolean backOpensClock, boolean glowSnap,
                    String castApp, String castAppLabel,
                    boolean iconOnlyShare, boolean iconOnlyWifi, boolean iconOnlySettings, String inputsMenuAlign, int inputsMenuOffsetX,
-                   boolean showRamMeter, boolean cctvEnabled, String cctvIp, String cctvUser, String cctvPassword, int cctvChannels,
+                   boolean showRamMeter, boolean cctvEnabled, String cctvIp, String cctvUser, String cctvPassword, int cctvChannels, String patchwallButton,
                    boolean dockDots, int dockDotsSize, int dockDotsFocusedWidth) {
         this.dockDots = dockDots;
         this.dockDotsSize = dockDotsSize;
@@ -331,6 +332,7 @@ final class Config {
         this.cctvUser = cctvUser;
         this.cctvPassword = cctvPassword;
         this.cctvChannels = cctvChannels;
+        this.patchwallButton = patchwallButton;
         this.castApp = castApp;
         this.castAppLabel = castAppLabel;
         this.handleViewInputs = handleViewInputs;
@@ -527,6 +529,7 @@ final class Config {
         String cctvUser = res.getString(R.string.cctv_user);
         String cctvPassword = res.getString(R.string.cctv_password);
         int cctvChannels = res.getInteger(R.integer.cctv_channels);
+        String patchwallButton = res.getString(R.string.patchwall_button);
         boolean iconOnlyVpn = res.getBoolean(R.bool.icon_only_vpn);
         boolean backOpensClock = res.getBoolean(R.bool.back_opens_clock);
         boolean glowSnap = res.getBoolean(R.bool.glow_snap);
@@ -657,6 +660,7 @@ final class Config {
             cctvUser = string(json, "cctv_user", cctvUser);
             cctvPassword = string(json, "cctv_password", cctvPassword);
             cctvChannels = integer(json, "cctv_channels", cctvChannels, 1, 16);
+            patchwallButton = string(json, "patchwall_button", patchwallButton);
             iconOnlyVpn = bool(json, "icon_only_vpn", iconOnlyVpn);
             backOpensClock = bool(json, "back_opens_clock", backOpensClock);
             glowSnap = bool(json, "glow_snap", glowSnap);
@@ -796,7 +800,7 @@ final class Config {
                 Math.max(0, Math.min(600, openOnStartNetworkWait)), openOnStartOnWake, iconOnlyVpn, clockFormat, backOpensClock, glowSnap,
                 castApp, castAppLabel,
                 iconOnlyShare, iconOnlyWifi, iconOnlySettings, inputsMenuAlign, inputsMenuOffsetX,
-                showRamMeter, cctvEnabled, cctvIp, cctvUser, cctvPassword, cctvChannels,
+                showRamMeter, cctvEnabled, cctvIp, cctvUser, cctvPassword, cctvChannels, patchwallButton,
                 dockDots, dockDotsSize, dockDotsFocusedWidth);
     }
 

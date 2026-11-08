@@ -477,6 +477,9 @@
     <string name="cctv_password" translatable="false">tvviewer123</string>
     <integer name="cctv_channels">5</integer>
 
+    <!-- PatchWall / Mi Remote Button remapping target ("share", "cctv", "inputs", "home", or package name) -->
+    <string name="patchwall_button" translatable="false">share</string>
+
     <!-- Each team's next game in the F1 panel's place under the clock, rotating with the theme's F1 weekend: the package
          of an add-on that publishes them (the Game Day add-on: io.github.justinnewman.gameday; contract in docs/modules.md).
          Empty = off: nothing is read or watched. The launcher only reads what the add-on publishes and never goes

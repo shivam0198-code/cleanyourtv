@@ -700,74 +700,6 @@
                         </LinearLayout>
                     </LinearLayout>
                 </HorizontalScrollView>
-
-                <!-- Full HD Expansion Overlay -->
-                <FrameLayout
-                    android:id="@+id/cctvExpandedOverlay"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="#E60A0C10"
-                    android:visibility="gone">
-
-                    <ImageView
-                        android:id="@+id/cctvHdImg"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_margin="12dp"
-                        android:scaleType="fitCenter" />
-
-                    <TextureView
-                        android:id="@+id/cctvHdVideo"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_margin="12dp"
-                        android:visibility="gone" />
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="top|left"
-                        android:layout_margin="24dp"
-                        android:background="@drawable/cctv_pill_glass"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingLeft="14dp"
-                        android:paddingTop="6dp"
-                        android:paddingRight="14dp"
-                        android:paddingBottom="6dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="● LIVE HD"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/cctvExpandedTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginLeft="10dp"
-                            android:text="Camera 1"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12sp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="bottom|center_horizontal"
-                        android:layout_marginBottom="24dp"
-                        android:background="@drawable/cctv_pill_glass"
-                        android:paddingLeft="14dp"
-                        android:paddingTop="6dp"
-                        android:paddingRight="14dp"
-                        android:paddingBottom="6dp"
-                        android:text="[Back] Return to Grid"
-                        android:textColor="#A6FFFFFF"
-                        android:textSize="11sp" />
-                </FrameLayout>
             </FrameLayout>
         </FrameLayout>
     </LinearLayout>
@@ -790,4 +722,73 @@
         android:layout_height="10dp"
         android:alpha="0"
         android:importantForAccessibility="no" />
+
+    <!-- Full Screen Camera Expansion Overlay (covers entire 1920x1080 screen) -->
+    <FrameLayout
+        android:id="@+id/cctvExpandedOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E60A0C10"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/cctvHdImg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter" />
+
+        <TextureView
+            android:id="@+id/cctvHdVideo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|left"
+            android:layout_margin="32dp"
+            android:background="@drawable/cctv_pill_glass"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="16dp"
+            android:paddingTop="8dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="● LIVE HD"
+                android:textColor="#FF4444"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/cctvExpandedTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="Camera 1"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="28dp"
+            android:background="@drawable/cctv_pill_glass"
+            android:paddingLeft="16dp"
+            android:paddingTop="8dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="8dp"
+            android:text="[Back] Return to Grid"
+            android:textColor="#A6FFFFFF"
+            android:textSize="11sp" />
+    </FrameLayout>
 </FrameLayout>

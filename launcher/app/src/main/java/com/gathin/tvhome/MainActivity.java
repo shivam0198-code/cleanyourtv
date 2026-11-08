@@ -1581,18 +1581,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
         if (cctvShown) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                int code = event.getKeyCode();
+            int code = event.getKeyCode();
+            if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
                 if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
-                    if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
+                    if (event.getAction() == KeyEvent.ACTION_UP) {
                         collapseCctvHd();
-                    } else {
-                        hideCctvView();
                     }
                     return true;
                 }
-                if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
-                    return super.dispatchKeyEvent(event);
+                // Swallow all other keys (D-pad arrows, OK/Center, etc.) while in full-screen HD view
+                return true;
+            }
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
+                    hideCctvView();
+                    return true;
                 }
                 if (isOkKey(code)) {
                     View cur = getCurrentFocus();
@@ -2000,6 +2003,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public void onTileFocused(int position, View card) {
+        if (cctvShown) {
+            hideGlass();
+            return;
+        }
         lastFocused = position;
         lastFocusedKey = adapter.keyAt(position);
         boolean isRightCol = (position % COLUMNS) == (COLUMNS - 1)
@@ -2703,6 +2710,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cctvShown || !cctvEnabled) return;
         cctvShown = true;
         hideGlass();
+        if (glass != null) glass.setVisibility(View.GONE);
         hideHero();
 
         if (gutterTab != null) gutterTab.animate().alpha(0f).setDuration(150).start();
@@ -2741,6 +2749,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void hideCctvView() {
         if (!cctvShown) return;
         cctvShown = false;
+        if (glass != null) glass.setVisibility(View.VISIBLE);
 
         if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
             cctvExpandedOverlay.setVisibility(View.GONE);
@@ -2816,6 +2825,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             @Override
             public void onError(String message) {
                 Log.w("CCTV", "HD stream error: " + message);
+                runOnUiThread(() -> {
+                    if (cctvManager != null && cctvHdImg != null && cctvExpandedOverlay != null
+                            && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
+                        cctvManager.startHighSpeedStream(cctvIp, cctvUser, cctvPassword, channel, cctvHdImg);
+                        cctvHdImg.setVisibility(View.VISIBLE);
+                        cctvHdImg.setAlpha(1f);
+                    }
+                });
             }
         });
     }

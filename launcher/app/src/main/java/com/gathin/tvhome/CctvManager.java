@@ -46,29 +46,18 @@ final class CctvManager {
         stopSnapshotLoop();
         releasePlayer();
 
+        androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_ALL);
+
         String url = buildRtspUrl(ip, user, pass, channel, 0); // subtype 0 = HD
         Log.i(TAG, "Starting HD stream ch=" + channel + " -> " + url);
 
         player = new ExoPlayer.Builder(context).build();
+        player.setVideoTextureView(surface);
 
         player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
                 .build());
 
-        surface.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-            @Override
-            public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st, int w, int h) {
-                if (player != null) {
-                    player.setVideoSurface(new android.view.Surface(st));
-                }
-            }
-            @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) {}
-            @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) { return true; }
-            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) {}
-        });
-        if (surface.isAvailable() && surface.getSurfaceTexture() != null) {
-            player.setVideoSurface(new android.view.Surface(surface.getSurfaceTexture()));
-        }
         player.addListener(new Player.Listener() {
             @Override
             public void onRenderedFirstFrame() {
@@ -83,7 +72,7 @@ final class CctvManager {
 
             @Override
             public void onPlayerError(androidx.media3.common.PlaybackException error) {
-                Log.w(TAG, "ExoPlayer error: " + error.getMessage(), error);
+                Log.w(TAG, "ExoPlayer error: " + error.getMessage() + ", cause=" + error.getCause(), error);
                 if (listener != null) listener.onError(error.getMessage());
             }
         });
@@ -170,6 +159,7 @@ final class CctvManager {
     }
 
     void releasePlayer() {
+        stopHighSpeedStream();
         final ExoPlayer p = player;
         player = null;
         if (p != null) {
@@ -190,7 +180,7 @@ final class CctvManager {
     private static String buildRtspUrl(String ip, String user, String pass, int channel, int subtype) {
         String u = enc(user);
         String p = enc(pass);
-        return "rtsp://" + u + ":" + p + "@" + ip + ":554/cam/realmonitor?channel=" + channel + "&subtype=" + subtype;
+        return "rtsp://" + u + ":" + p + "@" + ip + ":554/cam/realmonitor?channel=" + channel + "&subtype=" + subtype + "&unicast=true";
     }
 
     private static String enc(String s) {

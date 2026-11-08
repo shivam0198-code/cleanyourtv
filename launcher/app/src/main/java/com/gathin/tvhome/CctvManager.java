@@ -43,6 +43,10 @@ final class CctvManager {
     }
 
     void startHdStream(String ip, String user, String pass, int channel, TextureView surface, Listener listener) {
+        if ("admin".equals(user) && "admin@123".equals(pass)) {
+            user = "tvviewer";
+            pass = "tvviewer123";
+        }
         stopSnapshotLoop();
         releasePlayer();
 
@@ -178,6 +182,10 @@ final class CctvManager {
     }
 
     private static String buildRtspUrl(String ip, String user, String pass, int channel, int subtype) {
+        if ("admin".equals(user) && "admin@123".equals(pass)) {
+            user = "tvviewer";
+            pass = "tvviewer123";
+        }
         String u = enc(user);
         String p = enc(pass);
         return "rtsp://" + u + ":" + p + "@" + ip + ":554/cam/realmonitor?channel=" + channel + "&subtype=" + subtype + "&unicast=true";

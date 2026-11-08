@@ -473,8 +473,8 @@
     <!-- CCTV Camera View to the right of the home screen. Overridable via config.json "cctv_enabled": true/false -->
     <bool name="cctv_enabled">true</bool>
     <string name="cctv_ip" translatable="false">192.168.1.2</string>
-    <string name="cctv_user" translatable="false">admin</string>
-    <string name="cctv_password" translatable="false">admin@123</string>
+    <string name="cctv_user" translatable="false">tvviewer</string>
+    <string name="cctv_password" translatable="false">tvviewer123</string>
     <integer name="cctv_channels">5</integer>
 
     <!-- Each team's next game in the F1 panel's place under the clock, rotating with the theme's F1 weekend: the package

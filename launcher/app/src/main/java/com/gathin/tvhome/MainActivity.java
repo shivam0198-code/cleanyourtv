@@ -2704,6 +2704,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 });
             }
         }
+
+        View hdCard = findViewById(R.id.cctvHdCard);
+        final float hdRadius = 20 * density;
+        ViewOutlineProvider hdOutline = new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), hdRadius);
+            }
+        };
+        if (hdCard != null) {
+            hdCard.setOutlineProvider(hdOutline);
+            hdCard.setClipToOutline(true);
+        }
+        if (cctvHdVideo != null) {
+            cctvHdVideo.setOutlineProvider(hdOutline);
+            cctvHdVideo.setClipToOutline(true);
+        }
+        if (cctvHdImg != null) {
+            cctvHdImg.setOutlineProvider(hdOutline);
+            cctvHdImg.setClipToOutline(true);
+        }
     }
 
     private void showCctvView() {

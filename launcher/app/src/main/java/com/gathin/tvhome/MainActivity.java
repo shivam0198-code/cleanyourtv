@@ -119,6 +119,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     static final String ACTION_APP_LIBRARY = "com.gathin.tvhome.action.APP_LIBRARY";
     /** The system input switcher, forwarded here by InputsRequestActivity while handle_view_inputs is on. */
     static final String ACTION_VIEW_INPUTS = "com.android.tv.action.VIEW_INPUTS";
+    public static final String ACTION_TRIGGER_PATCHWALL = "com.gathin.tvhome.action.TRIGGER_PATCHWALL";
+    private static MainActivity sInstance;
+
+    public static MainActivity getInstance() {
+        return sInstance;
+    }
+
+    public boolean isHomeResumed() {
+        return resumed;
+    }
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
     private boolean rtlAppGrid;
@@ -1123,6 +1133,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Not after recreate(): the launch intent survives it and would open the settings again.
         if (savedInstanceState == null && !openLauncherSettingsIfAsked(getIntent()) && !openLibraryIfAsked(getIntent())) {
             openInputsIfAsked(getIntent());
+            openPatchWallIfAsked(getIntent());
         }
     }
 
@@ -1198,6 +1209,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return true;
     }
 
+    private boolean openPatchWallIfAsked(Intent intent) {
+        if (intent == null || !ACTION_TRIGGER_PATCHWALL.equals(intent.getAction())) return false;
+        setIntent(new Intent(Intent.ACTION_MAIN));
+        root.post(this::executePatchWallAction);
+        return true;
+    }
+
     /**
      * Home pressed while Home is already in front: singleTask delivers it here, then onResume runs.
      * Back to the top with the first dock tile focused, like the stock launcher. Back from an app
@@ -1209,6 +1227,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (openLauncherSettingsIfAsked(intent)) return;
         if (openLibraryIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
+        if (openPatchWallIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         if (cctvShown) hideCctvView();
         if (gameDay != null && !stopped) gameDay.read();
@@ -1242,6 +1261,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        sInstance = this;
         resumed = true;
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -1467,6 +1487,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        if (sInstance == this) sInstance = null;
         resumed = false;
         // No UP reaches a paused Home, so a vendor-key hold it saw go down would still open its app later.
         // Only Home's own share is dropped: a key service that saw the same DOWN keeps its hold.
@@ -1545,6 +1566,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (sInstance == this) sInstance = null;
         if (cctvManager != null) {
             cctvManager.releaseAll();
             cctvManager = null;
@@ -3349,9 +3371,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    private void executePatchWallAction() {
-        String action = patchwallButton != null ? patchwallButton : "share";
-        if (action == null || action.trim().isEmpty() || "share".equalsIgnoreCase(action)) {
+    public void executePatchWallAction() {
+        Config cfg = Config.load(this);
+        String action = cfg.patchwallButton != null ? cfg.patchwallButton.trim() : "share";
+        if (action.isEmpty() || "share".equalsIgnoreCase(action)) {
             showShareOverlay();
         } else if ("cctv".equalsIgnoreCase(action) || "camera".equalsIgnoreCase(action)) {
             if (!cctvShown) showCctvView();

@@ -278,6 +278,13 @@ public class HomeKeyService extends AccessibilityService {
         }
         if (RemoteKeys.handle(this, event, inFront(appKeys, frontAppKeys, event.getKeyCode()),
                 holdAppKeys.get(event.getKeyCode()))) return true;
+        // KEYCODE_BUTTON_5 (192): Xiaomi PatchWall / Mi remote button remapper
+        if (event.getKeyCode() == 192) {
+            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                handlePatchwallKey();
+            }
+            return true;
+        }
         // home_long_press_home: Android never sees the Home key, so a held press cannot turn into ALL_APPS.
         if (homeLongPressHome && event.getKeyCode() == KeyEvent.KEYCODE_HOME) {
             if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) openHome();
@@ -434,6 +441,26 @@ public class HomeKeyService extends AccessibilityService {
         ResolveInfo home = getPackageManager().resolveActivity(
                 new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
         return home != null && stockHomePackage.equals(home.activityInfo.packageName);
+    }
+
+    private void handlePatchwallKey() {
+        Config config = Config.load(this);
+        String action = config.patchwallButton != null ? config.patchwallButton.trim() : "share";
+        if (action.isEmpty()) action = "share";
+
+        MainActivity main = MainActivity.getInstance();
+        if (main != null && main.isHomeResumed()) {
+            main.executePatchWallAction();
+        } else if ("share".equalsIgnoreCase(action) || "cctv".equalsIgnoreCase(action)
+                || "camera".equalsIgnoreCase(action) || "inputs".equalsIgnoreCase(action)
+                || "home".equalsIgnoreCase(action)) {
+            Intent intent = new Intent(this, MainActivity.class)
+                    .setAction(MainActivity.ACTION_TRIGGER_PATCHWALL)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(intent);
+        } else {
+            RemoteKeys.launch(this, action);
+        }
     }
 
     @Override

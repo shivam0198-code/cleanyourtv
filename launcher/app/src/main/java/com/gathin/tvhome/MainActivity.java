@@ -392,6 +392,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String cctvUser;
     private String cctvPassword;
     private int cctvChannels;
+    private String patchwallButton;
     private boolean cctvShown = false;
     private View gutterTab;
     private FrameLayout cctvContainer;
@@ -571,6 +572,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         cctvUser = cfg.cctvUser;
         cctvPassword = cfg.cctvPassword;
         cctvChannels = cfg.cctvChannels;
+        patchwallButton = cfg.patchwallButton;
 
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
@@ -1105,7 +1107,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 registerReceiver(globalButtonReceiver, new IntentFilter("android.intent.action.GLOBAL_BUTTON"));
             }
         } catch (Exception e) {
-            Log.w(TAG, "Could not register globalButtonReceiver", e);
+            Log.w("MainActivity", "Could not register globalButtonReceiver", e);
         }
 
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -3348,7 +3350,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void executePatchWallAction() {
-        String action = cfg != null ? cfg.patchwallButton : "share";
+        String action = patchwallButton != null ? patchwallButton : "share";
         if (action == null || action.trim().isEmpty() || "share".equalsIgnoreCase(action)) {
             showShareOverlay();
         } else if ("cctv".equalsIgnoreCase(action) || "camera".equalsIgnoreCase(action)) {

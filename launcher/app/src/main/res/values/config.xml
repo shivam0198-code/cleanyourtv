@@ -502,8 +502,8 @@
     <!-- With cinematic_home, false leaves out the dock position dots under the app's name, for a quieter shelf. Can
          also be set with "cinematic_dots": false in a theme's config.json. -->
     <bool name="cinematic_dots">true</bool>
-    <!-- Dock position dots shown under the focused dock app name. Can be configured via config.json "dock_dots": true/false -->
-    <bool name="dock_dots">true</bool>
+    <!-- Dock position dots shown under the focused dock app name. Set false to remove the dot indicator/progress bar. -->
+    <bool name="dock_dots">false</bool>
     <!-- Diameter of unfocused dock position dots in dp (default 4dp, sleek). -->
     <integer name="dock_dots_size">4</integer>
     <!-- Width of focused dock position dot/pill in dp (default 14dp, sleek). -->

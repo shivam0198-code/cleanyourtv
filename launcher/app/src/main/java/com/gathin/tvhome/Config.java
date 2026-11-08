@@ -516,6 +516,8 @@ final class Config {
         boolean iconOnlyInputs = res.getBoolean(R.bool.icon_only_inputs);
         boolean iconOnlyShare = true;
         boolean iconOnlyWifi = iconOnlyButtons;
+        int resWifi = res.getIdentifier("icon_only_wifi", "bool", res.getResourcePackageName(R.bool.icon_only_buttons));
+        if (resWifi != 0) iconOnlyWifi = res.getBoolean(resWifi);
         boolean iconOnlySettings = true;
         String inputsMenuAlign = "end";
         int inputsMenuOffsetX = 0;
@@ -746,7 +748,10 @@ final class Config {
         if (!wallpaperEnabled) wallpaper = null;
         int rotationMinutes = json == null ? 0 : integer(json, "wallpaper_rotation_minutes", 0, 0, 1440);
         int wallpaperDim = json == null ? 0 : integer(json, "wallpaper_dim", 0, 0, 90);
-        int dockOpacity = json == null ? 100 : integer(json, "dock_opacity", 100, 30, 100);
+        int defaultDockOpacity = 100;
+        int resDockOpacity = res.getIdentifier("dock_opacity", "integer", res.getResourcePackageName(R.integer.columns));
+        if (resDockOpacity != 0) defaultDockOpacity = res.getInteger(resDockOpacity);
+        int dockOpacity = json == null ? defaultDockOpacity : integer(json, "dock_opacity", defaultDockOpacity, 30, 100);
         dockOpacity = chosenDockOpacity(choices.getInt(DOCK_OPACITY_KEY, -1), dockOpacity);
         clockFormat = choices.getString(CLOCK_FORMAT_KEY, clockFormat);
         String wallpaperOrder = json == null ? WallpaperRotation.ORDER_SHUFFLE

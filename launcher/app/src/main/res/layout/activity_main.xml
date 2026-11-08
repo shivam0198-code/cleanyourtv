@@ -447,7 +447,6 @@
                 android:id="@+id/cctvContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#14FFFFFF"
                 android:visibility="gone"
                 android:alpha="0">
 
@@ -489,6 +488,7 @@
                                     android:layout_margin="6dp"
                                     android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
+                                    android:foreground="@drawable/cctv_card_selector"
                                     android:clickable="true"
                                     android:focusable="true"
                                     android:nextFocusUp="@+id/cctv_card_1"
@@ -527,6 +527,7 @@
                                     android:layout_margin="6dp"
                                     android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
+                                    android:foreground="@drawable/cctv_card_selector"
                                     android:clickable="true"
                                     android:focusable="true"
                                     android:nextFocusUp="@+id/cctv_card_2"
@@ -573,6 +574,7 @@
                                     android:layout_margin="6dp"
                                     android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
+                                    android:foreground="@drawable/cctv_card_selector"
                                     android:clickable="true"
                                     android:focusable="true"
                                     android:nextFocusUp="@+id/cctv_card_1"
@@ -611,6 +613,7 @@
                                     android:layout_margin="6dp"
                                     android:clipToOutline="true"
                                     android:background="@drawable/cctv_card_glass"
+                                    android:foreground="@drawable/cctv_card_selector"
                                     android:clickable="true"
                                     android:focusable="true"
                                     android:nextFocusUp="@+id/cctv_card_2"
@@ -645,6 +648,7 @@
 
                         <!-- Peeking Column: Camera 5 (exact same tile size as Row 1, wasted space below) -->
                         <LinearLayout
+                            android:id="@+id/cctvCol5"
                             android:layout_width="340dp"
                             android:layout_height="match_parent"
                             android:orientation="vertical">
@@ -657,6 +661,7 @@
                                 android:layout_margin="6dp"
                                 android:clipToOutline="true"
                                 android:background="@drawable/cctv_card_glass"
+                                android:foreground="@drawable/cctv_card_selector"
                                 android:clickable="true"
                                 android:focusable="true"
                                 android:nextFocusUp="@+id/cctv_card_5"

@@ -55,20 +55,19 @@ final class CctvManager {
                 .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
                 .build());
 
+        surface.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st, int w, int h) {
+                if (player != null) {
+                    player.setVideoSurface(new android.view.Surface(st));
+                }
+            }
+            @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) {}
+            @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) { return true; }
+            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) {}
+        });
         if (surface.isAvailable() && surface.getSurfaceTexture() != null) {
             player.setVideoSurface(new android.view.Surface(surface.getSurfaceTexture()));
-        } else {
-            surface.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-                @Override
-                public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st, int w, int h) {
-                    if (player != null) {
-                        player.setVideoSurface(new android.view.Surface(st));
-                    }
-                }
-                @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) {}
-                @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) { return true; }
-                @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) {}
-            });
         }
         player.addListener(new Player.Listener() {
             @Override

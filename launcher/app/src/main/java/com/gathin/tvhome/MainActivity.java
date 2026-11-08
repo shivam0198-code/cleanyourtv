@@ -401,6 +401,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView cctvExpandedTitle;
     private int cctvExpandedChannel = -1;
     private CctvManager cctvManager;
+    private int cctvLastRowBeforeCam5 = 1;
 
     private boolean dockDots = true;
     private int dockDotsSize = 4;
@@ -1615,7 +1616,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         if (cctvCards[2] != null) cctvCards[2].requestFocus();
                         return true;
                     } else if (cur == cctvCards[4]) {
-                        if (cctvCards[1] != null) cctvCards[1].requestFocus();
+                        int targetIdx = (cctvLastRowBeforeCam5 == 3) ? 3 : 1;
+                        if (cctvCards[targetIdx] != null) cctvCards[targetIdx].requestFocus();
                         return true;
                     }
                 } else if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
@@ -1626,7 +1628,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     } else if (cur == cctvCards[2]) {
                         if (cctvCards[3] != null) cctvCards[3].requestFocus();
                         return true;
-                    } else if (cur == cctvCards[1] || cur == cctvCards[3]) {
+                    } else if (cur == cctvCards[1]) {
+                        cctvLastRowBeforeCam5 = 1;
+                        if (cctvCards[4] != null) cctvCards[4].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[3]) {
+                        cctvLastRowBeforeCam5 = 3;
                         if (cctvCards[4] != null) cctvCards[4].requestFocus();
                         return true;
                     } else if (cur == cctvCards[4]) {
@@ -2679,7 +2686,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                             .start();
                     if (hasFocus) {
                         if (idx == 4 && cctvScrollView != null) {
-                            cctvScrollView.smoothScrollTo(v.getLeft(), 0);
+                            View col5 = findViewById(R.id.cctvCol5);
+                            int targetX = col5 != null ? col5.getLeft() : Math.round(700 * density);
+                            cctvScrollView.smoothScrollTo(targetX, 0);
                         } else if (idx < 4 && cctvScrollView != null) {
                             cctvScrollView.smoothScrollTo(0, 0);
                         }
@@ -2770,25 +2779,58 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cctvExpandedTitle != null) {
             cctvExpandedTitle.setText("Camera " + channel);
         }
-        if (cctvHdImg != null && channel >= 1 && channel <= 5) {
-            ImageView src = cctvImgs[channel - 1];
-            if (src != null && src.getDrawable() != null) {
-                cctvHdImg.setImageDrawable(src.getDrawable());
+        if (cctvHdImg != null) {
+            if (channel >= 1 && channel <= 5) {
+                ImageView src = cctvImgs[channel - 1];
+                if (src != null && src.getDrawable() != null) {
+                    cctvHdImg.setImageDrawable(src.getDrawable());
+                }
             }
+            cctvHdImg.setAlpha(1f);
+            cctvHdImg.setVisibility(View.VISIBLE);
+        }
+        if (cctvHdVideo != null) {
+            cctvHdVideo.setVisibility(View.VISIBLE);
+            cctvHdVideo.setAlpha(0f);
         }
         cctvExpandedOverlay.setVisibility(View.VISIBLE);
         cctvExpandedOverlay.setAlpha(0f);
         cctvExpandedOverlay.animate().alpha(1f).setDuration(200).start();
 
-        cctvManager.startHighSpeedStream(cctvIp, cctvUser, cctvPassword, channel, cctvHdImg);
+        cctvManager.startHdStream(cctvIp, cctvUser, cctvPassword, channel, cctvHdVideo, new CctvManager.Listener() {
+            @Override
+            public void onFirstFrame() {
+                runOnUiThread(() -> {
+                    if (cctvHdVideo != null) {
+                        cctvHdVideo.animate().alpha(1f).setDuration(150).start();
+                    }
+                    if (cctvHdImg != null) {
+                        cctvHdImg.animate().alpha(0f).setDuration(150).withEndAction(() -> {
+                            cctvHdImg.setVisibility(View.GONE);
+                        }).start();
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                Log.w("CCTV", "HD stream error: " + message);
+            }
+        });
     }
 
     private void collapseCctvHd() {
         if (cctvExpandedOverlay == null || cctvExpandedOverlay.getVisibility() != View.VISIBLE) return;
         if (cctvManager != null) {
-            cctvManager.stopHighSpeedStream();
             cctvManager.releasePlayer();
             cctvManager.startSnapshotLoop(cctvIp, cctvUser, cctvPassword, cctvChannels, cctvImgs);
+        }
+        if (cctvHdVideo != null) {
+            cctvHdVideo.setVisibility(View.GONE);
+            cctvHdVideo.setAlpha(0f);
+        }
+        if (cctvHdImg != null) {
+            cctvHdImg.setVisibility(View.GONE);
         }
         cctvExpandedOverlay.animate()
                 .alpha(0f)

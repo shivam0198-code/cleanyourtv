@@ -491,6 +491,8 @@
                                     android:background="@drawable/cctv_card_glass"
                                     android:clickable="true"
                                     android:focusable="true"
+                                    android:nextFocusUp="@+id/cctv_card_1"
+                                    android:nextFocusLeft="@+id/cctv_card_1"
                                     android:nextFocusRight="@+id/cctv_card_2"
                                     android:nextFocusDown="@+id/cctv_card_3">
 
@@ -527,6 +529,7 @@
                                     android:background="@drawable/cctv_card_glass"
                                     android:clickable="true"
                                     android:focusable="true"
+                                    android:nextFocusUp="@+id/cctv_card_2"
                                     android:nextFocusLeft="@+id/cctv_card_1"
                                     android:nextFocusRight="@+id/cctv_card_5"
                                     android:nextFocusDown="@+id/cctv_card_4">
@@ -573,7 +576,9 @@
                                     android:clickable="true"
                                     android:focusable="true"
                                     android:nextFocusUp="@+id/cctv_card_1"
-                                    android:nextFocusRight="@+id/cctv_card_4">
+                                    android:nextFocusLeft="@+id/cctv_card_3"
+                                    android:nextFocusRight="@+id/cctv_card_4"
+                                    android:nextFocusDown="@+id/cctv_card_3">
 
                                     <ImageView
                                         android:id="@+id/cctv_img_3"
@@ -610,7 +615,8 @@
                                     android:focusable="true"
                                     android:nextFocusUp="@+id/cctv_card_2"
                                     android:nextFocusLeft="@+id/cctv_card_3"
-                                    android:nextFocusRight="@+id/cctv_card_5">
+                                    android:nextFocusRight="@+id/cctv_card_5"
+                                    android:nextFocusDown="@+id/cctv_card_4">
 
                                     <ImageView
                                         android:id="@+id/cctv_img_4"
@@ -653,7 +659,10 @@
                                 android:background="@drawable/cctv_card_glass"
                                 android:clickable="true"
                                 android:focusable="true"
-                                android:nextFocusLeft="@+id/cctv_card_2">
+                                android:nextFocusUp="@+id/cctv_card_5"
+                                android:nextFocusLeft="@+id/cctv_card_2"
+                                android:nextFocusRight="@+id/cctv_card_5"
+                                android:nextFocusDown="@+id/cctv_card_5">
 
                                 <ImageView
                                     android:id="@+id/cctv_img_5"

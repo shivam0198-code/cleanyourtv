@@ -1592,10 +1592,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (cctvExpandedOverlay != null && cctvExpandedOverlay.getVisibility() == View.VISIBLE) {
                     return super.dispatchKeyEvent(event);
                 }
+                if (isOkKey(code)) {
+                    View cur = getCurrentFocus();
+                    for (int i = 0; i < 5; i++) {
+                        if (cur == cctvCards[i]) {
+                            expandCctvHd(i + 1);
+                            return true;
+                        }
+                    }
+                    expandCctvHd(1);
+                    return true;
+                }
                 if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
                     View cur = getCurrentFocus();
                     if (cur == cctvCards[0] || cur == cctvCards[2]) {
                         hideCctvView();
+                        return true;
+                    } else if (cur == cctvCards[1]) {
+                        if (cctvCards[0] != null) cctvCards[0].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[3]) {
+                        if (cctvCards[2] != null) cctvCards[2].requestFocus();
                         return true;
                     } else if (cur == cctvCards[4]) {
                         if (cctvCards[1] != null) cctvCards[1].requestFocus();
@@ -1603,7 +1620,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     }
                 } else if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
                     View cur = getCurrentFocus();
-                    if (cur == cctvCards[1] || cur == cctvCards[3]) {
+                    if (cur == cctvCards[0]) {
+                        if (cctvCards[1] != null) cctvCards[1].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[2]) {
+                        if (cctvCards[3] != null) cctvCards[3].requestFocus();
+                        return true;
+                    } else if (cur == cctvCards[1] || cur == cctvCards[3]) {
                         if (cctvCards[4] != null) cctvCards[4].requestFocus();
                         return true;
                     } else if (cur == cctvCards[4]) {
@@ -2641,6 +2664,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     }
                 });
                 cctvCards[i].setOnClickListener(v -> expandCctvHd(channel));
+                cctvCards[i].setOnKeyListener((v, kCode, kEvent) -> {
+                    if (kEvent.getAction() == KeyEvent.ACTION_DOWN && isOkKey(kCode)) {
+                        expandCctvHd(channel);
+                        return true;
+                    }
+                    return false;
+                });
                 cctvCards[i].setOnFocusChangeListener((v, hasFocus) -> {
                     v.animate()
                             .scaleX(hasFocus ? 1.03f : 1.0f)
@@ -2678,6 +2708,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             cctvContainer.setVisibility(View.VISIBLE);
             cctvContainer.setTranslationX(80f * density);
             cctvContainer.setAlpha(0f);
+            if (cctvCards[0] != null) {
+                cctvCards[0].requestFocus();
+            }
             cctvContainer.animate()
                     .alpha(1f)
                     .translationX(0f)

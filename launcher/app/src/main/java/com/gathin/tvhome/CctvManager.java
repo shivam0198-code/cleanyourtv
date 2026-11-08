@@ -164,14 +164,15 @@ final class CctvManager {
 
     void releasePlayer() {
         stopHighSpeedStream();
-        final ExoPlayer p = player;
-        player = null;
-        if (p != null) {
-            Executors.newSingleThreadExecutor().execute(() -> {
-                try {
-                    p.release();
-                } catch (Exception ignored) {}
-            });
+        if (player != null) {
+            try {
+                player.clearVideoSurface();
+                player.stop();
+                player.release();
+            } catch (Exception e) {
+                Log.w(TAG, "Error releasing player", e);
+            }
+            player = null;
         }
     }
 

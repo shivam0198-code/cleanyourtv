@@ -397,6 +397,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private final FrameLayout[] cctvCards = new FrameLayout[5];
     private final ImageView[] cctvImgs = new ImageView[5];
     private FrameLayout cctvExpandedOverlay;
+    private FrameLayout cctvHdCard;
     private TextureView cctvHdVideo;
     private ImageView cctvHdImg;
     private TextView cctvExpandedTitle;
@@ -697,7 +698,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         cctvContainer = findViewById(R.id.cctvContainer);
         cctvScrollView = findViewById(R.id.cctvScrollView);
         cctvExpandedOverlay = findViewById(R.id.cctvExpandedOverlay);
-        cctvHdVideo = findViewById(R.id.cctvHdVideo);
+        cctvHdCard = findViewById(R.id.cctvHdCard);
         cctvHdImg = findViewById(R.id.cctvHdImg);
         cctvExpandedTitle = findViewById(R.id.cctvExpandedTitle);
 
@@ -2705,7 +2706,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
 
-        View hdCard = findViewById(R.id.cctvHdCard);
         final float hdRadius = 20 * density;
         ViewOutlineProvider hdOutline = new ViewOutlineProvider() {
             @Override
@@ -2713,13 +2713,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), hdRadius);
             }
         };
-        if (hdCard != null) {
-            hdCard.setOutlineProvider(hdOutline);
-            hdCard.setClipToOutline(true);
-        }
-        if (cctvHdVideo != null) {
-            cctvHdVideo.setOutlineProvider(hdOutline);
-            cctvHdVideo.setClipToOutline(true);
+        if (cctvHdCard != null) {
+            cctvHdCard.setOutlineProvider(hdOutline);
+            cctvHdCard.setClipToOutline(true);
         }
         if (cctvHdImg != null) {
             cctvHdImg.setOutlineProvider(hdOutline);
@@ -2820,10 +2816,26 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             cctvHdImg.setAlpha(1f);
             cctvHdImg.setVisibility(View.VISIBLE);
         }
-        if (cctvHdVideo != null) {
-            cctvHdVideo.setVisibility(View.VISIBLE);
+
+        if (cctvHdCard != null) {
+            if (cctvHdVideo != null) {
+                cctvHdCard.removeView(cctvHdVideo);
+                cctvHdVideo = null;
+            }
+            cctvHdVideo = new TextureView(this);
+            final float hdRadius = 20 * density;
+            cctvHdVideo.setOutlineProvider(new ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, Outline outline) {
+                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), hdRadius);
+                }
+            });
+            cctvHdVideo.setClipToOutline(true);
             cctvHdVideo.setAlpha(0f);
+            cctvHdCard.addView(cctvHdVideo, 1, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         }
+
         cctvExpandedOverlay.setVisibility(View.VISIBLE);
         cctvExpandedOverlay.setAlpha(0f);
         cctvExpandedOverlay.animate().alpha(1f).setDuration(200).start();
@@ -2865,8 +2877,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             cctvManager.startSnapshotLoop(cctvIp, cctvUser, cctvPassword, cctvChannels, cctvImgs);
         }
         if (cctvHdVideo != null) {
-            cctvHdVideo.setVisibility(View.GONE);
-            cctvHdVideo.setAlpha(0f);
+            if (cctvHdCard != null) {
+                cctvHdCard.removeView(cctvHdVideo);
+            }
+            cctvHdVideo = null;
         }
         if (cctvHdImg != null) {
             cctvHdImg.setVisibility(View.GONE);

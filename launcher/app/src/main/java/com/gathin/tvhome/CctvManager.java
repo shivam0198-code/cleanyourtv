@@ -55,7 +55,18 @@ final class CctvManager {
         String url = buildRtspUrl(ip, user, pass, channel, 0); // subtype 0 = HD
         Log.i(TAG, "Starting HD stream ch=" + channel + " -> " + url);
 
-        player = new ExoPlayer.Builder(context).build();
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                        /* minBufferMs= */ 500,
+                        /* maxBufferMs= */ 1500,
+                        /* bufferForPlaybackMs= */ 50,
+                        /* bufferForPlaybackAfterRebufferMs= */ 150)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build();
+
+        player = new ExoPlayer.Builder(context)
+                .setLoadControl(loadControl)
+                .build();
         player.setVideoTextureView(surface);
 
         player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
@@ -84,6 +95,7 @@ final class CctvManager {
         MediaItem item = MediaItem.fromUri(url);
         RtspMediaSource source = new RtspMediaSource.Factory()
                 .setForceUseRtpTcp(true)
+                .setTimeoutMs(4000)
                 .setDebugLoggingEnabled(true)
                 .createMediaSource(item);
 
